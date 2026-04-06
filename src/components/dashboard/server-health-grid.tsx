@@ -5,27 +5,43 @@ import { useServerMetrics } from "@/lib/hooks/use-metrics";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import Link from "next/link";
+import { Monitor } from "lucide-react";
 
 type Filter = "all" | "failures";
 
-function MetricBar({ value, color }: { value: number; color: string }) {
+function MetricBlock({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
   const pct = Math.min(100, Math.max(0, value));
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+    <div className="min-w-0">
+      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+        {label}
+      </p>
+      <p className="text-2xl font-black tabular-nums mb-2">{pct.toFixed(1)}%</p>
+      <div className="h-1 rounded-full bg-muted overflow-hidden">
         <div
           className={cn("h-full rounded-full transition-all duration-500", color)}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">
-        {pct.toFixed(0)}%
-      </span>
     </div>
   );
 }
 
-function ServerCard({ server }: { server: ReturnType<typeof useServers>["data"] extends (infer T)[] | undefined ? T : never }) {
+function ServerCard({
+  server,
+}: {
+  server: ReturnType<typeof useServers>["data"] extends (infer T)[] | undefined
+    ? T
+    : never;
+}) {
   const { data: metricsArray } = useServerMetrics(server._id, 1);
   const isOffline = server.status === "offline";
   const hasIncident = (server.open_incidents ?? 0) > 0;
@@ -39,7 +55,7 @@ function ServerCard({ server }: { server: ReturnType<typeof useServers>["data"] 
     <Link
       href={`/servers/${server._id}`}
       className={cn(
-        "block rounded-xl border p-4 transition-all hover:shadow-md",
+        "block rounded-xl border p-5 transition-all hover:shadow-md",
         isOffline
           ? "border-danger/40 bg-danger/5"
           : hasIncident
@@ -47,47 +63,76 @@ function ServerCard({ server }: { server: ReturnType<typeof useServers>["data"] 
           : "border-border bg-card hover:border-primary/30"
       )}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold truncate">{server.hostname}</p>
-          <p className="text-[10px] text-muted-foreground font-mono">{server.ip_address}</p>
+      {/* Header: icon + hostname/ip + status */}
+      <div className="flex items-start justify-between gap-3 mb-5">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-10 w-10 shrink-0 rounded-lg bg-muted/60 flex items-center justify-center">
+            <Monitor className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold uppercase tracking-wide truncate">
+              {server.hostname}
+            </p>
+            <p className="text-[11px] text-muted-foreground font-mono mt-0.5 truncate">
+              {server.ip_address}
+              <span className="mx-1.5 text-muted-foreground/50">|</span>
+              <span className="capitalize">{server.os_type}</span>
+            </p>
+          </div>
         </div>
-        <span
+        <div
           className={cn(
-            "shrink-0 ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full",
+            "shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold",
             isOffline
-              ? "bg-danger/15 text-danger"
-              : "bg-success/15 text-success"
+              ? "border-danger/40 text-danger bg-danger/10"
+              : "border-success/40 text-success bg-success/10"
           )}
         >
-          {isOffline ? "OFFLINE" : "ONLINE"}
-        </span>
+          {isOffline ? "OFFLINE" : "HEALTHY"}
+          <span
+            className={cn(
+              "h-1.5 w-1.5 rounded-full",
+              isOffline ? "bg-danger" : "bg-success"
+            )}
+          />
+        </div>
       </div>
 
-      {!isOffline && (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
-            <span className="w-8">CPU</span>
-            <MetricBar value={cpu} color={cpu > 85 ? "bg-danger" : cpu > 65 ? "bg-warning" : "bg-primary"} />
-          </div>
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span className="w-8">RAM</span>
-            <MetricBar value={ram} color={ram > 85 ? "bg-danger" : ram > 65 ? "bg-warning" : "bg-secondary"} />
-          </div>
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <span className="w-8">DISK</span>
-            <MetricBar value={disk} color={disk > 85 ? "bg-danger" : disk > 65 ? "bg-warning" : "bg-success"} />
-          </div>
-        </div>
-      )}
+      {/* Metrics grid */}
+      <div className="grid grid-cols-3 gap-5 mb-4">
+        <MetricBlock
+          label="CPU LOAD"
+          value={cpu}
+          color={
+            cpu > 85 ? "bg-danger" : cpu > 65 ? "bg-warning" : "bg-primary"
+          }
+        />
+        <MetricBlock
+          label="RAM"
+          value={ram}
+          color={
+            ram > 85 ? "bg-danger" : ram > 65 ? "bg-warning" : "bg-success"
+          }
+        />
+        <MetricBlock
+          label="DISK"
+          value={disk}
+          color={
+            disk > 85 ? "bg-danger" : disk > 65 ? "bg-warning" : "bg-success"
+          }
+        />
+      </div>
 
-      {hasIncident && !isOffline && (
-        <p className="text-[10px] text-warning mt-2 font-semibold">
-          ⚠ {server.open_incidents} active incident{(server.open_incidents ?? 0) > 1 ? "s" : ""}
+      {/* Incident pill / clean state */}
+      {hasIncident ? (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-danger/15 text-danger text-[10px] font-bold">
+          {server.open_incidents} INCIDENT
+          {(server.open_incidents ?? 0) > 1 ? "S" : ""}
+        </span>
+      ) : (
+        <p className="text-[11px] text-success font-semibold">
+          No active incidents
         </p>
-      )}
-      {!hasIncident && !isOffline && (
-        <p className="text-[10px] text-success mt-2 font-semibold">✓ No active incidents</p>
       )}
     </Link>
   );
@@ -130,9 +175,9 @@ export function ServerHealthGrid() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
+            <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />
           ))}
         </div>
       ) : displayed.length === 0 ? (
@@ -141,7 +186,7 @@ export function ServerHealthGrid() {
           <p className="text-xs text-muted-foreground">No failures detected</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
           {displayed.map((server) => (
             <ServerCard key={server._id} server={server} />
           ))}

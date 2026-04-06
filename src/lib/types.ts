@@ -25,6 +25,7 @@ export interface ServerCreate {
   hostname: string;
   ip_address: string;
   os_type: "linux" | "windows";
+  port?: number;
   credential: CredentialCreate;
 }
 
@@ -39,6 +40,7 @@ export interface ServerResponse {
   hostname: string;
   ip_address: string;
   os_type: "linux" | "windows";
+  port: number | null;
   status: ServerStatus;
   credential_id: string;
   last_health_check: string | null;
@@ -166,6 +168,7 @@ export interface ScriptResponse {
   name: string;
   description?: string;
   language: ScriptLanguage;
+  target_os?: string;
   content: string;
   created_at: string;
 }
@@ -174,13 +177,19 @@ export interface ScriptCreate {
   name: string;
   description?: string;
   language: ScriptLanguage;
+  target_os?: string;
   content: string;
 }
 
 // ── Notifications ─────────────────────────────────────────────
 export interface NotificationConfig {
-  _id: string;
-  type: "email";
+  _id?: string;
+  channel: "email";
   enabled: boolean;
-  config: Record<string, string>;
+  recipients: string[];
+  min_severity: SeverityLevel;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_user?: string;
+  smtp_password?: string;
 }
