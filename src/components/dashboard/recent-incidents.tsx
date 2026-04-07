@@ -18,7 +18,7 @@ export function RecentIncidents() {
         </span>
       </div>
 
-      <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
+      <div className="divide-y divide-border max-h-100 overflow-y-auto">
         {isLoading ? (
           <div className="p-5 text-center text-sm text-muted-foreground">
             Loading incidents...
@@ -29,28 +29,28 @@ export function RecentIncidents() {
           </div>
         ) : (
           (incidents || []).map((incident) => (
-            <div
-              key={incident._id}
-              className="px-5 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
-            >
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <SeverityBadge severity={incident.severity} />
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                  {timeAgo(incident.detected_at)}
-                </span>
-              </div>
-              <p className="text-sm text-foreground leading-snug mt-1.5">
-                {incident.description}
-              </p>
-              {incident.context && Object.keys(incident.context).length > 0 && (
-                <p className="text-xs text-muted-foreground font-mono mt-1 bg-muted/30 px-2 py-1 rounded">
-                  {Object.entries(incident.context)
-                    .slice(0, 2)
-                    .map(([k, v]) => `${k}: ${v}`)
-                    .join(" → ")}
+            <Link key={incident._id} href={`/incidents/${incident._id}`} className="">
+              <div className="px-5 py-3 hover:bg-muted/30 transition-colors cursor-pointer border-b border-white-/10">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <SeverityBadge severity={incident.severity} />
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {timeAgo(incident.detected_at)}
+                  </span>
+                </div>
+                <p className="text-sm text-foreground leading-snug mt-1.5">
+                  {incident.description}
                 </p>
-              )}
-            </div>
+                {incident.context &&
+                  Object.keys(incident.context).length > 0 && (
+                    <p className="text-xs text-muted-foreground font-mono mt-1 bg-muted/30 px-2 py-1 rounded">
+                      {Object.entries(incident.context)
+                        .slice(0, 2)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(" → ")}
+                    </p>
+                  )}
+              </div>
+            </Link>
           ))
         )}
       </div>

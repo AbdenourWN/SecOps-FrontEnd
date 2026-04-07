@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { scriptsApi } from "@/lib/api/scripts";
-import type { ScriptCreate } from "@/lib/types";
+import type { ScriptCreate, RemediationHistoryFilters } from "@/lib/types";
 
 export function useScripts() {
   return useQuery({
@@ -42,5 +42,25 @@ export function useDeleteScript() {
   return useMutation({
     mutationFn: (id: string) => scriptsApi.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["scripts"] }),
+  });
+}
+
+export function useRemediationHistory(
+  filters: RemediationHistoryFilters = { limit: 10 }
+) {
+  return useQuery({
+    queryKey: ["automation-history", filters],
+    queryFn: () => scriptsApi.history(filters),
+    refetchInterval: 15_000,
+  });
+}
+
+export function useRemediationHistoryStats(
+  filters: Omit<RemediationHistoryFilters, "limit" | "skip"> = {}
+) {
+  return useQuery({
+    queryKey: ["automation-history-stats", filters],
+    queryFn: () => scriptsApi.historyStats(filters),
+    refetchInterval: 15_000,
   });
 }

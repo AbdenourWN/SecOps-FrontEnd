@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { useScripts, useCreateScript, useDeleteScript } from "@/lib/hooks/use-scripts";
-import { Terminal, Plus, Trash2, Cpu, Code2 } from "lucide-react";
+import { Terminal, Plus, Trash2, Cpu, Code2, History } from "lucide-react";
+import Link from "next/link";
 import { timeAgo, cn } from "@/lib/utils";
 import type { ScriptLanguage } from "@/lib/types";
 
@@ -48,12 +49,20 @@ export default function AutomationPage() {
               </p>
             </div>
             {!showForm && (
-              <button 
-                onClick={() => setShowForm(true)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-sm font-semibold shadow-xl shadow-primary/20"
-              >
-                <Plus className="h-4 w-4" /> New Playbook
-              </button>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/automation/history"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-card border border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-sm font-semibold shadow-sm"
+                >
+                  <History className="h-4 w-4" /> View History
+                </Link>
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-sm font-semibold shadow-xl shadow-primary/20"
+                >
+                  <Plus className="h-4 w-4" /> New Playbook
+                </button>
+              </div>
             )}
           </div>
 

@@ -44,7 +44,6 @@ export interface ServerResponse {
   status: ServerStatus;
   credential_id: string;
   last_health_check: string | null;
-  open_incidents: number;
   created_at: string;
 }
 
@@ -179,6 +178,36 @@ export interface ScriptCreate {
   language: ScriptLanguage;
   target_os?: string;
   content: string;
+}
+
+// ── Automation / Remediation history ─────────────────────────
+export interface RemediationRun {
+  _id: string;
+  incident_id: string;
+  script_id: string;
+  script_name: string;
+  server_id: string;
+  server_hostname: string;
+  executed_at: string;
+  status: "success" | "failed";
+  output: string | null;
+  error: string | null;
+}
+
+export interface RemediationHistoryFilters {
+  limit?: number;
+  skip?: number;
+  status?: "success" | "failed";
+  server_id?: string;
+  script_id?: string;
+}
+
+export interface RemediationHistoryStats {
+  total: number;
+  success: number;
+  failed: number;
+  last_24h: number;
+  success_rate: number;
 }
 
 // ── Notifications ─────────────────────────────────────────────

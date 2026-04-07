@@ -2,8 +2,9 @@
 
 import { useServers } from "@/lib/hooks/use-servers";
 import { useServerMetrics } from "@/lib/hooks/use-metrics";
+import { useIncidents } from "@/lib/hooks/use-incidents";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Monitor } from "lucide-react";
 
@@ -37,14 +38,16 @@ function MetricBlock({
 
 function ServerCard({
   server,
+  incidentCount,
 }: {
   server: ReturnType<typeof useServers>["data"] extends (infer T)[] | undefined
     ? T
     : never;
+  incidentCount: number;
 }) {
   const { data: metricsArray } = useServerMetrics(server._id, 1);
   const isOffline = server.status === "offline";
-  const hasIncident = (server.open_incidents ?? 0) > 0;
+  const hasIncident = incidentCount > 0;
 
   const latest = metricsArray?.[0];
   const cpu = latest?.cpu_usage ?? 0;
@@ -88,7 +91,7 @@ function ServerCard({
               : "border-success/40 text-success bg-success/10"
           )}
         >
-          {isOffline ? "OFFLINE" : "HEALTHY"}
+          {isOffline ? "OFFLINE" : "ONLINE"}
           <span
             className={cn(
               "h-1.5 w-1.5 rounded-full",
@@ -126,8 +129,7 @@ function ServerCard({
       {/* Incident pill / clean state */}
       {hasIncident ? (
         <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-danger/15 text-danger text-[10px] font-bold">
-          {server.open_incidents} INCIDENT
-          {(server.open_incidents ?? 0) > 1 ? "S" : ""}
+          {incidentCount} INCIDENT{incidentCount > 1 ? "S" : ""}
         </span>
       ) : (
         <p className="text-[11px] text-success font-semibold">
@@ -140,10 +142,21 @@ function ServerCard({
 
 export function ServerHealthGrid() {
   const { data: servers, isLoading } = useServers();
+  const { data: openIncidents } = useIncidents({ status: "open", limit: 200 });
   const [filter, setFilter] = useState<Filter>("all");
 
+  const incidentCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const inc of openIncidents ?? []) {
+      counts[inc.server_id] = (counts[inc.server_id] ?? 0) + 1;
+    }
+    return counts;
+  }, [openIncidents]);
+
   const displayed = (servers ?? []).filter((s) =>
-    filter === "all" ? true : s.status === "offline" || (s.open_incidents ?? 0) > 0
+    filter === "all"
+      ? true
+      : s.status === "offline" || (incidentCounts[s._id] ?? 0) > 0
   );
 
   return (
@@ -188,7 +201,11 @@ export function ServerHealthGrid() {
       ) : (
         <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
           {displayed.map((server) => (
-            <ServerCard key={server._id} server={server} />
+            <ServerCard
+              key={server._id}
+              server={server}
+              incidentCount={incidentCounts[server._id] ?? 0}
+            />
           ))}
         </div>
       )}

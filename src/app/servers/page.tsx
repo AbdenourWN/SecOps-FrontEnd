@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { useServers, useDeleteServer } from "@/lib/hooks/use-servers";
+import { useIncidents } from "@/lib/hooks/use-incidents";
 import { Server, Shield, Trash2, Plus, Terminal, RefreshCw, Activity } from "lucide-react";
 import { timeAgo } from "@/lib/utils";
 import Link from "next/link";
@@ -10,8 +11,19 @@ import { cn } from "@/lib/utils";
 
 export default function ServersPage() {
   const { data: servers, isLoading } = useServers();
+  const { data: openIncidents } = useIncidents({ status: "open", limit: 200 });
   const deleteServer = useDeleteServer();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const incidentCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const inc of openIncidents ?? []) {
+      counts[inc.server_id] = (counts[inc.server_id] ?? 0) + 1;
+    }
+    return counts;
+  }, [openIncidents]);
+
+  const totalOpenIncidents = (openIncidents ?? []).length;
 
   // Stats
   const onlineCount = servers?.filter((s) => s.status === "online").length || 0;
@@ -68,9 +80,7 @@ export default function ServersPage() {
           <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative">
              <div className="absolute -right-6 -top-6 h-24 w-24 bg-secondary/10 rounded-full blur-2xl" />
             <p className="text-sm font-medium text-muted-foreground mb-4">Incidents Impacted</p>
-            <p className="text-4xl font-black">
-               {servers?.reduce((acc, s) => acc + (s.open_incidents || 0), 0) || 0}
-            </p>
+            <p className="text-4xl font-black">{totalOpenIncidents}</p>
           </div>
         </div>
 
@@ -93,7 +103,8 @@ export default function ServersPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {servers.map((server) => {
               const isOffline = server.status === "offline";
-              const hasIncidents = server.open_incidents > 0;
+              const incidentCount = incidentCounts[server._id] ?? 0;
+              const hasIncidents = incidentCount > 0;
               
               return (
                 <div 
@@ -146,7 +157,7 @@ export default function ServersPage() {
                       <div className="flex items-center gap-1.5">
                         <Shield className={cn("h-4 w-4", hasIncidents ? "text-warning" : "text-success")} />
                         <span className={cn("text-xs font-bold", hasIncidents ? "text-warning" : "text-muted-foreground")}>
-                          {server.open_incidents}
+                          {incidentCount}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 text-muted-foreground">
