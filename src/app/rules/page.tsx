@@ -4,16 +4,19 @@ import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { useRules, useCreateRule, useDeleteRule } from "@/lib/hooks/use-rules";
 import { Plus, Trash2, Cpu, Eye, LayoutGrid, Terminal, Shield } from "lucide-react";
+import { toast } from "sonner";
 import { timeAgo, cn } from "@/lib/utils";
-import type { SeverityLevel, ActionLevel, RuleOSType } from "@/lib/types";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import type { SeverityLevel, ActionLevel, RuleOSType, DetectionRule } from "@/lib/types";
 
 export default function RulesPage() {
   const { data: rules, isLoading } = useRules();
   const createRule = useCreateRule();
   const deleteRule = useDeleteRule();
-  
+
   const [showForm, setShowForm] = useState(false);
-  
+  const [deleteTarget, setDeleteTarget] = useState<DetectionRule | null>(null);
+
   const [name, setName] = useState("");
   const [pattern, setPattern] = useState("");
   const [severity, setSeverity] = useState<SeverityLevel>("medium");
@@ -21,6 +24,17 @@ export default function RulesPage() {
   const [description, setDescription] = useState("");
   const [osType, setOsType] = useState<RuleOSType>("linux");
   const [enabled, setEnabled] = useState(true);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteRule.mutateAsync(deleteTarget._id);
+      toast.success("Detection rule deleted");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
 
   const handleCreate = async () => {
     if (!name || !pattern) return;
@@ -129,8 +143,8 @@ export default function RulesPage() {
                      </div>
                      
                      <div className="ml-4 pl-4 border-l border-border opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                       <button 
-                         onClick={() => deleteRule.mutate(rule._id)}
+                       <button
+                         onClick={() => setDeleteTarget(rule)}
                          className="p-2 rounded-xl text-muted-foreground hover:bg-danger/10 hover:text-danger transition-colors bg-card border border-border shadow-sm"
                        >
                          <Trash2 className="h-4 w-4" />
@@ -247,6 +261,20 @@ export default function RulesPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Detection Rule"
+        message={
+          deleteTarget
+            ? `Permanently remove "${deleteTarget.name}"? Logs that match this signature will no longer be classified or trigger automated responses.`
+            : ""
+        }
+        confirmLabel="Delete Rule"
+        isPending={deleteRule.isPending}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AppShell>
   );
 }

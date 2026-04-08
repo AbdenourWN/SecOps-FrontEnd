@@ -12,7 +12,13 @@ export function cn(...inputs: ClassValue[]) {
 export function timeAgo(date: string | null | undefined): string {
   if (!date) return "Never";
   try {
-    return formatDistanceToNow(new Date(date), { addSuffix: true });
+    let utcDateString = date.replace(" ", "T");
+    
+    if (!utcDateString.endsWith("Z") && !utcDateString.includes("+")) {
+      utcDateString += "Z";
+    }
+
+    return formatDistanceToNow(new Date(utcDateString), { addSuffix: true });
   } catch {
     return "Unknown";
   }

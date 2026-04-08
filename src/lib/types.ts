@@ -13,10 +13,15 @@ export type RuleOSType = "linux" | "windows" | "common";
 export type LogLevel = "info" | "warning" | "error" | "critical" | "debug";
 
 // ── Servers ─────────────────────────────────────────────────
+// Backend accepts exactly "password" or "ssh_key" (see CredentialType in
+// SecOps-Backend/app/modules/servers/schemas.py). Anything else 422s.
+export type CredentialType = "password" | "ssh_key";
+
 export interface CredentialCreate {
   username: string;
-  type: "ssh_password" | "ssh_key" | "winrm";
+  type: CredentialType;
   secret: string;
+  passphrase?: string;
 }
 
 export type ServerStatus = "online" | "offline" | "unknown";
@@ -121,10 +126,32 @@ export interface LogEntry {
   timestamp: string;
 }
 
+export type LogParserType = "raw" | "nginx" | "apache" | "json";
+
+export interface LogSource {
+  _id: string;
+  server_id: string;
+  name: string;
+  file_path: string;
+  parser_type: LogParserType;
+  is_active: boolean;
+  last_offset: number;
+  error_count: number;
+  created_at?: string;
+}
+
 export interface LogSourceCreate {
   server_id: string;
+  name: string;
   file_path: string;
-  service_name: string;
+  parser_type?: LogParserType;
+}
+
+export interface LogSourceUpdate {
+  name?: string;
+  file_path?: string;
+  parser_type?: LogParserType;
+  is_active?: boolean;
 }
 
 export interface LogSearchResponse {

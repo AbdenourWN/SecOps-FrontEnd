@@ -3,10 +3,10 @@
 import { useServers } from "@/lib/hooks/use-servers";
 import { useServerMetrics } from "@/lib/hooks/use-metrics";
 import { useIncidents } from "@/lib/hooks/use-incidents";
-import { cn } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Monitor } from "lucide-react";
+import { Activity, Monitor } from "lucide-react";
 
 type Filter = "all" | "failures";
 
@@ -28,7 +28,10 @@ function MetricBlock({
       <p className="text-2xl font-black tabular-nums mb-2">{pct.toFixed(1)}%</p>
       <div className="h-1 rounded-full bg-muted overflow-hidden">
         <div
-          className={cn("h-full rounded-full transition-all duration-500", color)}
+          className={cn(
+            "h-full rounded-full transition-all duration-500",
+            color,
+          )}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -62,8 +65,8 @@ function ServerCard({
         isOffline
           ? "border-danger/40 bg-danger/5"
           : hasIncident
-          ? "border-warning/40 bg-warning/5"
-          : "border-border bg-card hover:border-primary/30"
+            ? "border-warning/40 bg-warning/5"
+            : "border-border bg-green-700/10 hover:border-green-700/30",
       )}
     >
       {/* Header: icon + hostname/ip + status */}
@@ -88,14 +91,14 @@ function ServerCard({
             "shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold",
             isOffline
               ? "border-danger/40 text-danger bg-danger/10"
-              : "border-success/40 text-success bg-success/10"
+              : "border-success/40 text-success bg-success/10",
           )}
         >
           {isOffline ? "OFFLINE" : "ONLINE"}
           <span
             className={cn(
               "h-1.5 w-1.5 rounded-full",
-              isOffline ? "bg-danger" : "bg-success"
+              isOffline ? "bg-danger" : "bg-success",
             )}
           />
         </div>
@@ -124,6 +127,12 @@ function ServerCard({
             disk > 85 ? "bg-danger" : disk > 65 ? "bg-warning" : "bg-success"
           }
         />
+      </div>
+      <div className="flex items-center gap-1.5 text-muted-foreground my-2">
+        <Activity className="h-4 w-4" />
+        <span className="text-[10px] font-mono ">
+          last health checked: {timeAgo(server.last_health_check)}
+        </span>
       </div>
 
       {/* Incident pill / clean state */}
@@ -156,7 +165,7 @@ export function ServerHealthGrid() {
   const displayed = (servers ?? []).filter((s) =>
     filter === "all"
       ? true
-      : s.status === "offline" || (incidentCounts[s._id] ?? 0) > 0
+      : s.status === "offline" || (incidentCounts[s._id] ?? 0) > 0,
   );
 
   return (
@@ -178,7 +187,7 @@ export function ServerHealthGrid() {
                 "px-3 py-1.5 rounded-md font-semibold capitalize transition-all",
                 filter === f
                   ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {f === "all" ? "All Nodes" : "Failures Only"}
@@ -195,7 +204,9 @@ export function ServerHealthGrid() {
         </div>
       ) : displayed.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 gap-2">
-          <p className="text-sm text-success font-semibold">✓ All systems operational</p>
+          <p className="text-sm text-success font-semibold">
+            ✓ All systems operational
+          </p>
           <p className="text-xs text-muted-foreground">No failures detected</p>
         </div>
       ) : (

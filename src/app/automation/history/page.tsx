@@ -90,7 +90,7 @@ export default function AutomationHistoryPage() {
           <div>
             <Link
               href="/automation"
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors mb-3"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors mb-3 pr-5"
             >
               <ArrowLeft className="h-3 w-3" />
               Back to Playbooks
@@ -287,7 +287,7 @@ export default function AutomationHistoryPage() {
                         <td className="px-5 py-3">
                           <button
                             onClick={() => setSelectedRun(run)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground text-[11px] font-semibold transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground text-[11px] font-semibold transition-colors cursor-pointer"
                           >
                             <FileText className="h-3 w-3" />
                             Details

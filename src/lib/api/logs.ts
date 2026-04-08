@@ -1,5 +1,12 @@
 import { apiClient } from "@/lib/api";
-import type { LogEntry, LogSearchResponse, LogSourceCreate, LogLevel } from "@/lib/types";
+import type {
+  LogEntry,
+  LogSearchResponse,
+  LogSource,
+  LogSourceCreate,
+  LogSourceUpdate,
+  LogLevel,
+} from "@/lib/types";
 
 type LogSearchParams = {
   q?: string;
@@ -25,6 +32,18 @@ export const logsApi = {
   collect: (serverId: string) =>
     apiClient.post<{ status: string }>("/api/logs/collect/" + serverId),
 
-  addSource: (data: LogSourceCreate) =>
+  // ── Log sources CRUD ──────────────────────────────────────────────
+  listSources: (serverId?: string) =>
+    apiClient.get<LogSource[]>("/api/logs/sources", {
+      params: serverId ? { server_id: serverId } : undefined,
+    }),
+
+  createSource: (data: LogSourceCreate) =>
     apiClient.post<{ status: string; id: string }>("/api/logs/sources", data),
+
+  updateSource: (id: string, data: LogSourceUpdate) =>
+    apiClient.put<{ status: string }>("/api/logs/sources/" + id, data),
+
+  deleteSource: (id: string) =>
+    apiClient.delete<{ status: string }>("/api/logs/sources/" + id),
 };

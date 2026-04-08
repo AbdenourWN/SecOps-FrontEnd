@@ -5,20 +5,34 @@ import { AppShell } from "@/components/layout/app-shell";
 import { useScripts, useCreateScript, useDeleteScript } from "@/lib/hooks/use-scripts";
 import { Terminal, Plus, Trash2, Cpu, Code2, History } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { timeAgo, cn } from "@/lib/utils";
-import type { ScriptLanguage } from "@/lib/types";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import type { ScriptLanguage, ScriptResponse } from "@/lib/types";
 
 export default function AutomationPage() {
   const { data: scripts, isLoading } = useScripts();
   const createScript = useCreateScript();
   const deleteScript = useDeleteScript();
-  
+
   const [showForm, setShowForm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ScriptResponse | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [language, setLanguage] = useState<ScriptLanguage>("bash");
   const [content, setContent] = useState("");
   const [targetOs, setTargetOs] = useState("linux");
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteScript.mutateAsync(deleteTarget._id);
+      toast.success("Playbook deleted");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
 
   const handleCreate = async () => {
     if (!name || !content) return;
@@ -91,8 +105,8 @@ export default function AutomationPage() {
               {scripts.map((script) => (
                 <div key={script._id} className="group flex flex-col justify-between rounded-3xl border border-border bg-card p-6 transition-all hover:shadow-xl hover:-translate-y-1 hover:border-primary/40 relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => deleteScript.mutate(script._id)}
+                    <button
+                      onClick={() => setDeleteTarget(script)}
                       className="p-2 rounded-lg bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -217,6 +231,20 @@ export default function AutomationPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete Playbook"
+        message={
+          deleteTarget
+            ? `Permanently delete "${deleteTarget.name}"? Any rule still pointing to this playbook will stop auto-remediating.`
+            : ""
+        }
+        confirmLabel="Delete Playbook"
+        isPending={deleteScript.isPending}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AppShell>
   );
 }
