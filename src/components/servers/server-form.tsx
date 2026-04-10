@@ -62,7 +62,7 @@ export function ServerForm() {
         port: data.port ? Number(data.port) : undefined,
         credential: {
           username: data.username,
-          type: "ssh_password",
+          type: "password",
           secret: data.secret,
         },
       });

@@ -6,7 +6,11 @@ import {
   useUpdateIncidentStatus,
   useAiAnalysis,
 } from "@/lib/hooks/use-incidents";
-import { SeverityBadge, StatusBadge, timeAgo } from "@/components/shared/badges";
+import {
+  SeverityBadge,
+  StatusBadge,
+  timeAgo,
+} from "@/components/shared/badges";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
@@ -18,9 +22,18 @@ import {
   FileText,
   ExternalLink,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { use } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { IncidentStatus } from "@/lib/types";
 
 export default function IncidentDetailPage({
@@ -120,27 +133,26 @@ export default function IncidentDetailPage({
             </div>
 
             {/* Context */}
-            {incident.context &&
-              Object.keys(incident.context).length > 0 && (
-                <div className="rounded-xl border border-border bg-card p-5">
-                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-                    Context
-                  </h3>
-                  <div className="space-y-2">
-                    {Object.entries(incident.context).map(([key, value]) => (
-                      <div
-                        key={key}
-                        className="flex items-center justify-between rounded-lg bg-muted/30 px-4 py-2.5"
-                      >
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          {key}
-                        </span>
-                        <span className="font-mono text-sm">{value}</span>
-                      </div>
-                    ))}
-                  </div>
+            {incident.context && Object.keys(incident.context).length > 0 && (
+              <div className="rounded-xl border border-border bg-card p-5">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
+                  Context
+                </h3>
+                <div className="space-y-2">
+                  {Object.entries(incident.context).map(([key, value]) => (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between rounded-lg bg-muted/30 px-4 py-2.5"
+                    >
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {key}
+                      </span>
+                      <span className="font-mono text-sm">{value}</span>
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
 
             {/* AI Analysis */}
             <div className="rounded-xl border border-border bg-card p-5">
@@ -170,10 +182,37 @@ export default function IncidentDetailPage({
                 )}
               </div>
               {incident.ai_analysis ? (
-                <div className="max-h-[400px] overflow-y-auto rounded-lg bg-muted/20 p-4">
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                <div className="max-h-125 overflow-y-auto rounded-lg bg-slate-50 dark:bg-muted/20 border border-slate-200 dark:border-border p-5">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      h1: ({ children }) => <h1 className="text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900/50 pb-1.5 mb-3 mt-5 first:mt-0">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-sm font-bold text-blue-600 dark:text-blue-300 mb-2 mt-4 first:mt-0">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-sm font-semibold text-violet-700 dark:text-violet-300 mb-1.5 mt-3 first:mt-0">{children}</h3>,
+                      p: ({ children }) => <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 mb-2.5 last:mb-0">{children}</p>,
+                      ul: ({ children }) => <ul className="space-y-1 mb-2.5 text-sm text-slate-700 dark:text-slate-300 pl-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 mb-2.5 text-sm text-slate-700 dark:text-slate-300">{children}</ol>,
+                      li: ({ children }) => (
+                        <li className="flex items-start gap-2 leading-relaxed">
+                          <span className="text-blue-500 mt-0.5 shrink-0 text-xs">▸</span>
+                          <span>{children}</span>
+                        </li>
+                      ),
+                      strong: ({ children }) => <strong className="font-semibold text-slate-900 dark:text-white">{children}</strong>,
+                      em: ({ children }) => <em className="italic text-slate-500 dark:text-slate-400">{children}</em>,
+                      code: ({ children, className }) => {
+                        const isBlock = className?.includes("language-");
+                        return isBlock
+                          ? <code className="block bg-slate-100 dark:bg-[#0a1628] border-l-2 border-blue-500 dark:border-blue-600 rounded-r-lg px-3 py-2.5 text-xs font-mono text-blue-800 dark:text-green-400 overflow-x-auto">{children}</code>
+                          : <code className="bg-violet-50 dark:bg-violet-500/15 border border-violet-200 dark:border-violet-500/25 rounded px-1.5 py-0.5 text-xs font-mono text-violet-700 dark:text-violet-300">{children}</code>;
+                      },
+                      pre: ({ children }) => <pre className="my-3 rounded-lg overflow-hidden">{children}</pre>,
+                      blockquote: ({ children }) => <blockquote className="border-l-2 border-blue-500 pl-3.5 py-0.5 my-2.5 bg-blue-50 dark:bg-blue-500/5 rounded-r italic text-slate-600 dark:text-slate-400">{children}</blockquote>,
+                      hr: () => <hr className="border-slate-200 dark:border-slate-700 my-4" />,
+                    }}
+                  >
                     {incident.ai_analysis}
-                  </div>
+                  </ReactMarkdown>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
@@ -192,19 +231,23 @@ export default function IncidentDetailPage({
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
                   Status
                 </label>
-                <select
+                <Select
                   value={incident.status}
-                  onChange={(e) =>
-                    handleStatusChange(e.target.value as IncidentStatus)
-                  }
-                  className="w-full h-9 rounded-lg border border-border bg-muted/50 px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  onValueChange={(v) => handleStatusChange(v as IncidentStatus)}
                 >
-                  {statuses.map((s) => (
-                    <option key={s} value={s}>
-                      {s.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full h-9 text-sm font-semibold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s
+                          .replace("_", " ")
+                          .replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Severity */}
@@ -243,16 +286,22 @@ export default function IncidentDetailPage({
 
               {/* Rule */}
               <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1 block flex items-center gap-1.5">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1.5">
                   <Shield className="h-3 w-3" />
                   Detection Rule
                 </label>
-                <p className="text-sm font-mono text-muted-foreground">{incident.rule_id.slice(0, 12)}…</p>
+                <Link
+                  href={`/rules/${incident.rule_id}`}
+                  className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+                >
+                  {incident.rule_id.slice(0, 12)}…{" "}
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
               </div>
 
               {/* Server */}
               <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1 block flex items-center gap-1.5">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1.5">
                   <Server className="h-3 w-3" />
                   Server
                 </label>

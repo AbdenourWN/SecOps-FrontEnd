@@ -23,6 +23,13 @@ import { timeAgo } from "@/lib/utils";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { CredentialType } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function ServersPage() {
   const { data: servers, isLoading } = useServers();
@@ -375,16 +382,18 @@ export default function ServersPage() {
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
                       OS
                     </label>
-                    <select
+                    <Select
                       value={osType}
-                      onChange={(e) =>
-                        setOsType(e.target.value as "linux" | "windows")
-                      }
-                      className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm appearance-none cursor-pointer"
+                      onValueChange={(v) => setOsType(v as "linux" | "windows")}
                     >
-                      <option value="linux">Linux</option>
-                      <option value="windows">Windows</option>
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="linux">Linux</SelectItem>
+                        <SelectItem value="windows">Windows</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
@@ -426,184 +435,18 @@ export default function ServersPage() {
                       <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
                         Auth Type
                       </label>
-                      <select
+                      <Select
                         value={credType}
-                        onChange={(e) =>
-                          setCredType(e.target.value as CredentialType)
-                        }
-                        className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm appearance-none cursor-pointer"
+                        onValueChange={(v) => setCredType(v as CredentialType)}
                       >
-                        <option value="password">Password</option>
-                        <option value="ssh_key">SSH Key</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                      {credType === "ssh_key"
-                        ? "Private Key (PEM)"
-                        : "Password"}
-                    </label>
-                    {credType === "ssh_key" ? (
-                      <textarea
-                        value={credSecret}
-                        onChange={(e) => setCredSecret(e.target.value)}
-                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-                        className="w-full px-3 py-2 rounded-lg bg-[#0f172a] text-green-400 border border-border focus:border-primary/50 outline-none text-xs font-mono h-28 resize-none"
-                        spellCheck={false}
-                      />
-                    ) : (
-                      <input
-                        type="password"
-                        value={credSecret}
-                        onChange={(e) => setCredSecret(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm font-mono"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-3">
-                  <button
-                    onClick={() => {
-                      setDeployOpen(false);
-                      resetDeployForm();
-                    }}
-                    disabled={createServer.isPending}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold border border-border hover:bg-muted disabled:opacity-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleDeploy}
-                    disabled={createServer.isPending}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-lg shadow-primary/20"
-                  >
-                    {createServer.isPending ? "Deploying..." : "Deploy Node"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Deploy Node modal */}
-        {deployOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-start justify-between mb-5">
-                <div>
-                  <h2 className="text-xl font-bold">Deploy Compute Node</h2>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Register a server and its access credentials. The secret is
-                    encrypted at rest.
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setDeployOpen(false);
-                    resetDeployForm();
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                      Hostname
-                    </label>
-                    <input
-                      value={hostname}
-                      onChange={(e) => setHostname(e.target.value)}
-                      placeholder="web-01"
-                      className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                      IP Address
-                    </label>
-                    <input
-                      value={ipAddress}
-                      onChange={(e) => setIpAddress(e.target.value)}
-                      placeholder="192.168.1.10"
-                      className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                      OS
-                    </label>
-                    <select
-                      value={osType}
-                      onChange={(e) =>
-                        setOsType(e.target.value as "linux" | "windows")
-                      }
-                      className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm appearance-none cursor-pointer"
-                    >
-                      <option value="linux">Linux</option>
-                      <option value="windows">Windows</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                      Port{" "}
-                      <span className="text-muted-foreground/60 font-normal normal-case">
-                        (optional)
-                      </span>
-                    </label>
-                    <input
-                      value={port}
-                      onChange={(e) => setPort(e.target.value)}
-                      placeholder={osType === "windows" ? "5985" : "22"}
-                      inputMode="numeric"
-                      className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-border">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">
-                    Access Credentials
-                  </p>
-
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div>
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                        Username
-                      </label>
-                      <input
-                        value={credUsername}
-                        onChange={(e) => setCredUsername(e.target.value)}
-                        placeholder={
-                          osType === "windows" ? "Administrator" : "root"
-                        }
-                        className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
-                        Auth Type
-                      </label>
-                      <select
-                        value={credType}
-                        onChange={(e) =>
-                          setCredType(e.target.value as CredentialType)
-                        }
-                        className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm appearance-none cursor-pointer"
-                      >
-                        <option value="password">Password</option>
-                        <option value="ssh_key">SSH Key</option>
-                      </select>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="password">Password</SelectItem>
+                          <SelectItem value="ssh_key">SSH Key</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 

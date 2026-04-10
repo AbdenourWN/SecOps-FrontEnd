@@ -26,6 +26,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SeverityLevel } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Tab = "profile" | "appearance" | "notifications" | "api";
 
@@ -312,18 +319,20 @@ function NotificationsSection() {
               </FieldGroup>
 
               <FieldGroup label="Minimum Severity">
-                <select
+                <Select
                   value={minSeverity}
-                  onChange={(e) =>
-                    setMinSeverity(e.target.value as SeverityLevel)
-                  }
-                  className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm appearance-none"
+                  onValueChange={(v) => setMinSeverity(v as SeverityLevel)}
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="critical">Critical</SelectItem>
+                  </SelectContent>
+                </Select>
                 <p className="text-[11px] text-muted-foreground mt-1">
                   Only send alerts for incidents at or above this severity
                 </p>

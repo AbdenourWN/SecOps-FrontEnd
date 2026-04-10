@@ -8,6 +8,13 @@ import { toast } from "sonner";
 import { timeAgo, cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { SeverityLevel, ActionLevel, RuleOSType, DetectionRule } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function RulesPage() {
   const { data: rules, isLoading } = useRules();
@@ -193,39 +200,54 @@ export default function RulesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Severity</label>
-                    <select 
-                      value={severity} onChange={(e) => setSeverity(e.target.value as any)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm appearance-none cursor-pointer"
+                    <Select
+                      value={severity}
+                      onValueChange={(v) => setSeverity(v as SeverityLevel)}
                     >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Action Level</label>
-                    <select 
-                      value={actionLevel} onChange={(e) => setActionLevel(Number(e.target.value) as any)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm appearance-none cursor-pointer"
+                    <Select
+                      value={String(actionLevel)}
+                      onValueChange={(v) => setActionLevel(Number(v) as ActionLevel)}
                     >
-                      <option value={1}>1 - Log</option>
-                      <option value={2}>2 - Alert</option>
-                      <option value={3}>3 - Remediate</option>
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 - Log</SelectItem>
+                        <SelectItem value="2">2 - Alert</SelectItem>
+                        <SelectItem value="3">3 - Remediate</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Target OS</label>
-                    <select 
-                      value={osType} onChange={(e) => setOsType(e.target.value as any)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm appearance-none cursor-pointer"
+                    <Select
+                      value={osType}
+                      onValueChange={(v) => setOsType(v as RuleOSType)}
                     >
-                      <option value="linux">Linux</option>
-                      <option value="windows">Windows</option>
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="linux">Linux</SelectItem>
+                        <SelectItem value="windows">Windows</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Status</label>

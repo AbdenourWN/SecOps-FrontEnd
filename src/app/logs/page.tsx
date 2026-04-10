@@ -7,6 +7,13 @@ import { useServers } from "@/lib/hooks/use-servers";
 import { Search, Flame, Terminal, Filter, Server, List } from "lucide-react";
 import { timeAgo, cn } from "@/lib/utils";
 import type { LogLevel } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function LogsPage() {
   const [query, setQuery] = useState("");
@@ -74,27 +81,33 @@ export default function LogsPage() {
 
                <div className="w-full md:w-48 shrink-0">
                  <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-2 block">Target Node</label>
-                 <select 
-                   value={serverId} onChange={(e) => setServerId(e.target.value)}
-                   className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary/50 outline-none text-sm appearance-none shadow-sm cursor-pointer"
-                 >
-                   <option value="all">All Infrastructure</option>
-                   {servers?.map((s) => <option key={s._id} value={s._id}>{s.hostname}</option>)}
-                 </select>
+                 <Select value={serverId || "all"} onValueChange={(v) => v && setServerId(v === "all" ? "" : v)}>
+                   <SelectTrigger className="w-full">
+                     <SelectValue />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="all">All Infrastructure</SelectItem>
+                     {servers?.map((s) => (
+                       <SelectItem key={s._id} value={s._id}>{s.hostname}</SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
                </div>
 
                <div className="w-full md:w-36 shrink-0">
                  <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-2 block">Severity</label>
-                 <select 
-                   value={level} onChange={(e) => setLevel(e.target.value)}
-                   className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-primary/50 outline-none text-sm appearance-none shadow-sm cursor-pointer capitalize"
-                 >
-                   <option value="all">Any Level</option>
-                   <option value="critical">Critical</option>
-                   <option value="error">Error</option>
-                   <option value="warning">Warning</option>
-                   <option value="info">Info</option>
-                 </select>
+                 <Select value={level || "all"} onValueChange={(v) => v && setLevel(v === "all" ? "" : v)}>
+                   <SelectTrigger className="w-full capitalize">
+                     <SelectValue />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="all">Any Level</SelectItem>
+                     <SelectItem value="critical">Critical</SelectItem>
+                     <SelectItem value="error">Error</SelectItem>
+                     <SelectItem value="warning">Warning</SelectItem>
+                     <SelectItem value="info">Info</SelectItem>
+                   </SelectContent>
+                 </Select>
                </div>
 
                <button 

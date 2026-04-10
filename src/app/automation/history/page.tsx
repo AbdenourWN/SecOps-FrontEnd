@@ -26,6 +26,13 @@ import {
   Terminal,
 } from "lucide-react";
 import type { RemediationRun } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PAGE_SIZE = 25;
 
@@ -410,17 +417,18 @@ function FilterSelect({
       <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {label}
       </label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-2 rounded-lg bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm font-medium min-w-[180px]"
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+      <Select value={value} onValueChange={(v) => v && onChange(v)}>
+        <SelectTrigger className="min-w-[180px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

@@ -9,6 +9,13 @@ import { toast } from "sonner";
 import { timeAgo, cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import type { ScriptLanguage, ScriptResponse } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function AutomationPage() {
   const { data: scripts, isLoading } = useScripts();
@@ -178,24 +185,31 @@ export default function AutomationPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Environment</label>
-                    <select 
-                      value={language} onChange={(e) => setLanguage(e.target.value as any)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm appearance-none"
+                    <Select
+                      value={language}
+                      onValueChange={(v) => setLanguage(v as ScriptLanguage)}
                     >
-                      <option value="bash">Bash</option>
-                      <option value="python">Python</option>
-                      <option value="powershell">PowerShell</option>
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bash">Bash</SelectItem>
+                        <SelectItem value="python">Python</SelectItem>
+                        <SelectItem value="powershell">PowerShell</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">Target OS</label>
-                    <select 
-                      value={targetOs} onChange={(e) => setTargetOs(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm appearance-none"
-                    >
-                      <option value="linux">Linux</option>
-                      <option value="windows">Windows</option>
-                    </select>
+                    <Select value={targetOs} onValueChange={(v) => v && setTargetOs(v)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="linux">Linux</SelectItem>
+                        <SelectItem value="windows">Windows</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 

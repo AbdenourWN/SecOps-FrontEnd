@@ -13,6 +13,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   useLogSources,
   useCreateLogSource,
   useUpdateLogSource,
@@ -426,17 +433,21 @@ function LogSourceFormModal({
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Parser
             </label>
-            <select
+            <Select
               value={parserType}
-              onChange={(e) => setParserType(e.target.value as LogParserType)}
-              className="mt-1 w-full h-9 rounded-lg border border-border bg-muted/50 px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              onValueChange={(v) => setParserType(v as LogParserType)}
             >
-              {PARSER_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="mt-1 w-full h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PARSER_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Buttons */}
