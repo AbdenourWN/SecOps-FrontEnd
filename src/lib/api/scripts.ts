@@ -2,6 +2,8 @@ import { apiClient } from "@/lib/api";
 import type {
   ScriptResponse,
   ScriptCreate,
+  ScriptFilters,
+  ScriptListResponse,
   RemediationRun,
   RemediationHistoryFilters,
   RemediationHistoryStats,
@@ -19,8 +21,18 @@ function buildHistoryQuery(filters: RemediationHistoryFilters = {}): string {
 }
 
 export const scriptsApi = {
-  list: () =>
-    apiClient.get<ScriptResponse[]>("/api/automation/scripts"),
+  list: (filters?: ScriptFilters) => {
+    const params = new URLSearchParams();
+    if (filters?.language) params.set("language", filters.language);
+    if (filters?.target_os) params.set("target_os", filters.target_os);
+    if (filters?.search) params.set("search", filters.search);
+    if (filters?.page) params.set("page", String(filters.page));
+    if (filters?.page_size) params.set("page_size", String(filters.page_size));
+    const qs = params.toString();
+    return apiClient.get<ScriptListResponse>(
+      `/api/automation/scripts${qs ? `?${qs}` : ""}`
+    );
+  },
 
   getById: (id: string) =>
     apiClient.get<ScriptResponse>("/api/automation/scripts/" + id),

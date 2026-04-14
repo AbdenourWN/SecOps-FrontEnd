@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { logLevelColor, formatDate } from "@/lib/utils";
 import { FileText } from "lucide-react";
-import type { LogEntry } from "@/lib/types";
+import type { LogEntry, LogLevel } from "@/lib/types";
 
 interface LogTableProps {
   logs: LogEntry[];
@@ -47,9 +47,9 @@ export function LogTable({ logs }: LogTableProps) {
               <TableCell>
                 <Badge
                   variant="outline"
-                  className={`text-xs ${logLevelColor[log.level]}`}
+                  className={`text-xs ${logLevelColor[log.level.toLowerCase() as LogLevel]}`}
                 >
-                  {log.level}
+                  {log.level.toLowerCase()}
                 </Badge>
               </TableCell>
               <TableCell className="text-xs">{log.service}</TableCell>

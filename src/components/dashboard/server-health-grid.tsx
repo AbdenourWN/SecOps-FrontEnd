@@ -43,9 +43,7 @@ function ServerCard({
   server,
   incidentCount,
 }: {
-  server: ReturnType<typeof useServers>["data"] extends (infer T)[] | undefined
-    ? T
-    : never;
+  server: NonNullable<ReturnType<typeof useServers>["data"]>["results"][number];
   incidentCount: number;
 }) {
   const { data: metricsArray } = useServerMetrics(server._id, 1);
@@ -150,19 +148,20 @@ function ServerCard({
 }
 
 export function ServerHealthGrid() {
-  const { data: servers, isLoading } = useServers();
-  const { data: openIncidents } = useIncidents({ status: "open", limit: 200 });
+  const { data: serversData, isLoading } = useServers({ page_size: 100 });
+  const servers = serversData?.results ?? [];
+  const { data: openIncidents } = useIncidents({ status: "open", page_size: 200 });
   const [filter, setFilter] = useState<Filter>("all");
 
   const incidentCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const inc of openIncidents ?? []) {
+    for (const inc of openIncidents?.results ?? []) {
       counts[inc.server_id] = (counts[inc.server_id] ?? 0) + 1;
     }
     return counts;
   }, [openIncidents]);
 
-  const displayed = (servers ?? []).filter((s) =>
+  const displayed = servers.filter((s) =>
     filter === "all"
       ? true
       : s.status === "offline" || (incidentCounts[s._id] ?? 0) > 0,

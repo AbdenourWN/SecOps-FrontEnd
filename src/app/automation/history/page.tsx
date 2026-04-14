@@ -45,8 +45,10 @@ export default function AutomationHistoryPage() {
   const [page, setPage] = useState(0);
   const [selectedRun, setSelectedRun] = useState<RemediationRun | null>(null);
 
-  const { data: servers } = useServers();
-  const { data: scripts } = useScripts();
+  const { data: serversData } = useServers({ page_size: 100 });
+  const servers = serversData?.results ?? [];
+  const { data: scriptsData } = useScripts({ page_size: 100 });
+  const scripts = scriptsData?.results ?? [];
 
   const filters = useMemo(
     () => ({
@@ -196,7 +198,7 @@ export default function AutomationHistoryPage() {
               onChange={handleScriptChange}
               options={[
                 { value: "all", label: "All playbooks" },
-                ...(scripts ?? []).map((s) => ({
+                ...scripts.map((s) => ({
                   value: s._id,
                   label: s.name,
                 })),

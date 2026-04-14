@@ -2,13 +2,14 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { serversApi } from "@/lib/api/servers";
-import type { ServerCreate, ServerUpdate, ServerDelete } from "@/lib/types";
+import type { ServerCreate, ServerUpdate, ServerDelete, ServerFilters } from "@/lib/types";
 
-export function useServers() {
+export function useServers(filters: ServerFilters = {}) {
   return useQuery({
-    queryKey: ["servers"],
-    queryFn: serversApi.list,
+    queryKey: ["servers", filters],
+    queryFn: () => serversApi.list(filters),
     refetchInterval: 30_000,
+    placeholderData: (prev) => prev,
   });
 }
 

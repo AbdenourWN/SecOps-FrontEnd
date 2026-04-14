@@ -2,21 +2,14 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { incidentsApi } from "@/lib/api/incidents";
-import type { IncidentStatus, SeverityLevel } from "@/lib/types";
-
-type IncidentFilters = {
-  server_id?: string;
-  severity?: SeverityLevel;
-  status?: IncidentStatus;
-  skip?: number;
-  limit?: number;
-};
+import type { IncidentStatus, IncidentFilters } from "@/lib/types";
 
 export function useIncidents(filters?: IncidentFilters) {
   return useQuery({
     queryKey: ["incidents", filters],
     queryFn: () => incidentsApi.list(filters),
     refetchInterval: 15_000,
+    placeholderData: (prev) => prev,
   });
 }
 

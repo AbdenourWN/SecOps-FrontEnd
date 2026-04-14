@@ -107,7 +107,8 @@ export default function ServerDetailPage({
   const { data: server, isLoading: loadingServer } = useServer(id);
   const { data: metrics } = useServerMetrics(id, 30);
   const { data: logs } = useServerLogs(id, 50);
-  const { data: incidents } = useIncidents({ server_id: id, limit: 10 });
+  const { data: incidentsData } = useIncidents({ server_id: id, page_size: 10 });
+  const incidents = incidentsData?.results ?? [];
   const executeCommand = useExecuteCommand();
   const deleteServer = useDeleteServer();
 
@@ -503,9 +504,9 @@ export default function ServerDetailPage({
                     key={i}
                     className={cn(
                       "py-0.5 flex gap-3",
-                      log.level === "error" || log.level === "critical"
+                      log.level.toLowerCase() === "error" || log.level.toLowerCase() === "critical"
                         ? "text-red-400"
-                        : log.level === "warning"
+                        : log.level.toLowerCase() === "warning"
                           ? "text-yellow-400"
                           : "text-muted-foreground",
                     )}
@@ -513,7 +514,7 @@ export default function ServerDetailPage({
                     <span className="text-muted-foreground shrink-0">
                       {new Date(log.timestamp).toLocaleTimeString()}
                     </span>
-                    <span className="shrink-0 w-20">[{log.level}]</span>
+                    <span className="shrink-0 w-20">[{log.level.toLowerCase()}]</span>
                     <span className="break-all">{log.message}</span>
                   </div>
                 ))

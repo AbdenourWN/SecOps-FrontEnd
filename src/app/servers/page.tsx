@@ -11,18 +11,18 @@ import { useIncidents } from "@/lib/hooks/use-incidents";
 import {
   Server,
   Shield,
-  Trash2,
   Plus,
   Terminal,
   RefreshCw,
   Activity,
   X,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { timeAgo } from "@/lib/utils";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import type { CredentialType } from "@/lib/types";
+import type { CredentialType, ServerFilters } from "@/lib/types";
 import {
   Select,
   SelectContent,
@@ -30,10 +30,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export default function ServersPage() {
-  const { data: servers, isLoading } = useServers();
-  const { data: openIncidents } = useIncidents({ status: "open", limit: 200 });
+  const PAGE_SIZE = 9;
+
+  // Filters
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ServerFilters["status"] | "">("");
+  const [osFilter, setOsFilter] = useState<ServerFilters["os_type"] | "">("");
+  const [page, setPage] = useState(1);
+
+  // Reset to page 1 whenever a filter changes
+  const setSearchAndReset = (v: string) => { setSearch(v); setPage(1); };
+  const setStatusAndReset = (v: ServerFilters["status"] | "") => { setStatusFilter(v); setPage(1); };
+  const setOsAndReset = (v: ServerFilters["os_type"] | "") => { setOsFilter(v); setPage(1); };
+
+  const filters: ServerFilters = {
+    ...(statusFilter ? { status: statusFilter } : {}),
+    ...(osFilter ? { os_type: osFilter } : {}),
+    ...(search.trim() ? { search: search.trim() } : {}),
+    page,
+    page_size: PAGE_SIZE,
+  };
+
+  const { data, isLoading } = useServers(filters);
+  const servers = data?.results ?? [];
+  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1;
+
+  // Unfiltered stats — one cheap request per status
+  const { data: allData }     = useServers({ page: 1, page_size: 1 });
+  const { data: onlineData }  = useServers({ status: "online",  page: 1, page_size: 1 });
+  const { data: offlineData } = useServers({ status: "offline", page: 1, page_size: 1 });
+  const { data: openIncidentsData } = useIncidents({ status: "open", page_size: 200 });
+  const openIncidents = openIncidentsData?.results ?? [];
   const deleteServer = useDeleteServer();
   const createServer = useCreateServer();
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -113,10 +149,7 @@ export default function ServersPage() {
 
   const totalOpenIncidents = (openIncidents ?? []).length;
 
-  // Stats
-  const onlineCount = servers?.filter((s) => s.status === "online").length || 0;
-  const offlineCount =
-    servers?.filter((s) => s.status === "offline").length || 0;
+  const hasFilters = !!statusFilter || !!osFilter || !!search.trim();
 
   return (
     <AppShell>
@@ -128,7 +161,7 @@ export default function ServersPage() {
               <Server className="h-3.5 w-3.5" />
               INFRASTRUCTURE
             </div>
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent pb-2">
               Compute Nodes
             </h1>
             <p className="text-muted-foreground mt-2 max-w-xl leading-relaxed">
@@ -138,10 +171,10 @@ export default function ServersPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-card border border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-sm font-semibold shadow-sm">
+            {/* <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-card border border-border hover:border-primary/50 hover:bg-primary/5 transition-all text-sm font-semibold shadow-sm">
               <RefreshCw className="h-4 w-4" />
               Scan Network
-            </button>
+            </button> */}
             <button
               onClick={() => setDeployOpen(true)}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm font-semibold shadow-xl shadow-primary/20"
@@ -156,57 +189,86 @@ export default function ServersPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative">
             <div className="absolute -right-6 -top-6 h-24 w-24 bg-primary/10 rounded-full blur-2xl" />
-            <p className="text-sm font-medium text-muted-foreground mb-4">
-              Total Nodes
-            </p>
-            <p className="text-4xl font-black">{servers?.length || 0}</p>
+            <p className="text-sm font-medium text-muted-foreground mb-4">Total Nodes</p>
+            <p className="text-4xl font-black">{allData?.total ?? 0}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative border-success/30">
+          <div className="rounded-2xl border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative border-success/30">
             <div className="absolute -right-6 -top-6 h-24 w-24 bg-success/10 rounded-full blur-2xl" />
             <span className="text-sm font-medium text-success mb-4 flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-success animate-pulse" />{" "}
-              Online
+              <span className="h-2 w-2 rounded-full bg-success animate-pulse" /> Online
             </span>
-            <p className="text-4xl font-black">{onlineCount}</p>
+            <p className="text-4xl font-black">{onlineData?.total ?? 0}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative border-danger/30">
+          <div className="rounded-2xl border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative border-danger/30">
             <div className="absolute -right-6 -top-6 h-24 w-24 bg-danger/10 rounded-full blur-2xl" />
-            <p className="text-sm font-medium text-danger mb-4">
-              Offline / Error
-            </p>
-            <p className="text-4xl font-black">{offlineCount}</p>
+            <p className="text-sm font-medium text-danger mb-4">Offline / Error</p>
+            <p className="text-4xl font-black">{offlineData?.total ?? 0}</p>
           </div>
           <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative">
             <div className="absolute -right-6 -top-6 h-24 w-24 bg-secondary/10 rounded-full blur-2xl" />
-            <p className="text-sm font-medium text-muted-foreground mb-4">
-              Incidents Impacted
-            </p>
+            <p className="text-sm font-medium text-muted-foreground mb-4">Incidents Impacted</p>
             <p className="text-4xl font-black">{totalOpenIncidents}</p>
           </div>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearchAndReset(e.target.value)}
+              placeholder="Search hostname or IP…"
+              className="w-full h-9 pl-9 pr-4 rounded-lg border border-border bg-muted/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
+            />
+          </div>
+          <Select value={statusFilter || "all"} onValueChange={(v) => setStatusAndReset(v === "all" ? "" : v as ServerFilters["status"])}>
+            <SelectTrigger className="w-full sm:w-35"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="online">Online</SelectItem>
+              <SelectItem value="offline">Offline</SelectItem>
+              <SelectItem value="unknown">Unknown</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={osFilter || "all"} onValueChange={(v) => setOsAndReset(v === "all" ? "" : v as ServerFilters["os_type"])}>
+            <SelectTrigger className="w-full sm:w-35"><SelectValue placeholder="OS" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All OS</SelectItem>
+              <SelectItem value="linux">Linux</SelectItem>
+              <SelectItem value="windows">Windows</SelectItem>
+            </SelectContent>
+          </Select>
+          {hasFilters && (
+            <button
+              onClick={() => { setSearchAndReset(""); setStatusAndReset(""); setOsAndReset(""); }}
+              className="flex items-center gap-1.5 px-3 h-9 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </button>
+          )}
         </div>
 
         {/* Server Grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="h-48 rounded-2xl bg-muted/60 animate-pulse border border-border"
-              />
+            {[...Array(PAGE_SIZE)].map((_, i) => (
+              <div key={i} className="h-48 rounded-2xl bg-muted/60 animate-pulse border border-border" />
             ))}
           </div>
-        ) : !servers || servers.length === 0 ? (
+        ) : servers.length === 0 ? (
           <div className="py-20 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-3xl bg-card/30">
             <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-4">
               <Server className="h-8 w-8" />
             </div>
-            <h3 className="text-lg font-bold">No servers connected</h3>
+            <h3 className="text-lg font-bold">{hasFilters ? "No servers match your filters" : "No servers connected"}</h3>
             <p className="text-muted-foreground text-sm mt-1 max-w-sm text-center">
-              Deploy an agent to a compute node to begin monitoring telemetry
-              and security events.
+              {hasFilters ? "Try adjusting or clearing the filters." : "Deploy an agent to a compute node to begin monitoring telemetry and security events."}
             </p>
           </div>
         ) : (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {servers.map((server) => {
               const isOffline = server.status === "offline";
@@ -326,32 +388,84 @@ export default function ServersPage() {
               );
             })}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <p className="text-xs text-muted-foreground">
+                Page <span className="font-semibold text-foreground">{page}</span> of{" "}
+                <span className="font-semibold text-foreground">{totalPages}</span>
+                {" . "}
+                <span className="font-semibold text-foreground">{data?.total}</span> total
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  className="px-3 py-2 rounded-lg text-xs font-semibold border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >«</button>
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-2 rounded-lg text-xs font-semibold border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >Prev</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    item === "…" ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-xs text-muted-foreground">…</span>
+                    ) : (
+                      <button
+                        key={item}
+                        onClick={() => setPage(item as number)}
+                        className={cn(
+                          "px-4 py-2 rounded-lg text-xs font-semibold border transition-colors",
+                          page === item
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border bg-card hover:bg-muted"
+                        )}
+                      >{item}</button>
+                    )
+                  )}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="px-3 py-2 rounded-lg text-xs font-semibold border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >Next</button>
+                <button
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                  className="px-3 py-2 rounded-lg text-xs font-semibold border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >»</button>
+              </div>
+            </div>
+          )}
+          </>
         )}
 
         {/* Deploy Node modal */}
-        {deployOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-start justify-between mb-5">
-                <div>
-                  <h2 className="text-xl font-bold">Deploy Compute Node</h2>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Register a server and its access credentials. The secret is
-                    encrypted at rest.
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setDeployOpen(false);
-                    resetDeployForm();
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+        <Dialog
+          open={deployOpen}
+          onOpenChange={(open) => {
+            setDeployOpen(open);
+            if (!open) resetDeployForm();
+          }}
+        >
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold">Deploy Compute Node</DialogTitle>
+              <DialogDescription className="text-xs">
+                Register a server and its access credentials. The secret is
+                encrypted at rest.
+              </DialogDescription>
+            </DialogHeader>
 
-              <div className="space-y-4">
+            <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
@@ -496,9 +610,8 @@ export default function ServersPage() {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
 
         {/* Simple inline delete modal without relying on ui components */}
         {deleteId && (

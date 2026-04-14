@@ -19,6 +19,7 @@ export function useLogSearch(params: LogSearchParams, enabled = false) {
     queryKey: ["logs", "search", params],
     queryFn: () => logsApi.search(params),
     enabled,
+    placeholderData: (prev) => prev,
   });
 }
 

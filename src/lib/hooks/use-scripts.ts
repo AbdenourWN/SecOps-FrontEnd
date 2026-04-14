@@ -2,13 +2,14 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { scriptsApi } from "@/lib/api/scripts";
-import type { ScriptCreate, RemediationHistoryFilters } from "@/lib/types";
+import type { ScriptCreate, ScriptFilters, RemediationHistoryFilters } from "@/lib/types";
 
-export function useScripts() {
+export function useScripts(filters?: ScriptFilters) {
   return useQuery({
-    queryKey: ["scripts"],
-    queryFn: scriptsApi.list,
+    queryKey: ["scripts", filters],
+    queryFn: () => scriptsApi.list(filters),
     refetchInterval: 60_000,
+    placeholderData: (prev) => prev,
   });
 }
 

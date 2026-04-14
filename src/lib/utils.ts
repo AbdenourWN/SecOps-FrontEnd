@@ -59,7 +59,7 @@ export const logLevelColor: Record<LogLevel, string> = {
   error: "text-red-400",
   warning: "text-yellow-400",
   info: "text-zinc-400",
-  debug: "text-zinc-500",
+  unknown: "text-zinc-500",
 };
 
 export const actionLevelLabel: Record<ActionLevel, string> = {

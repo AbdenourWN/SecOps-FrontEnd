@@ -10,12 +10,27 @@ export type IncidentStatus = "open" | "investigating" | "resolved" | "false_posi
 export type ActionLevel = 1 | 2 | 3;
 export type ScriptLanguage = "bash" | "python" | "powershell";
 export type RuleOSType = "linux" | "windows" | "common";
-export type LogLevel = "info" | "warning" | "error" | "critical" | "debug";
+export type LogLevel = "info" | "warning" | "error" | "critical" | "unknown";
 
 // ── Servers ─────────────────────────────────────────────────
 // Backend accepts exactly "password" or "ssh_key" (see CredentialType in
 // SecOps-Backend/app/modules/servers/schemas.py). Anything else 422s.
 export type CredentialType = "password" | "ssh_key";
+
+export interface ServerFilters {
+  status?: "online" | "offline" | "unknown";
+  os_type?: "linux" | "windows";
+  search?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface ServerListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  results: ServerResponse[];
+}
 
 export interface CredentialCreate {
   username: string;
@@ -63,6 +78,22 @@ export interface MetricResponse {
 }
 
 // ── Incidents ───────────────────────────────────────────────
+export interface IncidentFilters {
+  server_id?: string;
+  severity?: SeverityLevel;
+  status?: IncidentStatus;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface IncidentListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  results: IncidentResponse[];
+}
+
 export interface IncidentResponse {
   _id: string;
   server_id: string;
@@ -163,6 +194,22 @@ export interface LogSearchResponse {
 }
 
 // ── Detection Rules ──────────────────────────────────────────
+export interface RuleFilters {
+  severity?: SeverityLevel;
+  os_type?: RuleOSType;
+  enabled?: boolean;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface RuleListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  results: DetectionRule[];
+}
+
 export interface DetectionRule {
   _id: string;
   name: string;
@@ -205,6 +252,21 @@ export interface ScriptCreate {
   language: ScriptLanguage;
   target_os?: string;
   content: string;
+}
+
+export interface ScriptFilters {
+  language?: ScriptLanguage;
+  target_os?: string;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface ScriptListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  results: ScriptResponse[];
 }
 
 // ── Automation / Remediation history ─────────────────────────
