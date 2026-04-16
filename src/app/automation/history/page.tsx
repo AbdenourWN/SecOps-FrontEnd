@@ -108,7 +108,7 @@ export default function AutomationHistoryPage() {
               <Bot className="h-3.5 w-3.5" />
               AUTOMATION ACTIVITY
             </div>
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
               Remediation History
             </h1>
             <p className="text-muted-foreground mt-2 max-w-xl leading-relaxed">
@@ -247,11 +247,11 @@ export default function AutomationHistoryPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
-                    <th className="text-left px-5 py-3 w-[140px]">Status</th>
+                    <th className="text-left px-5 py-3 w-35">Status</th>
                     <th className="text-left px-5 py-3">Playbook</th>
                     <th className="text-left px-5 py-3">Server</th>
-                    <th className="text-left px-5 py-3 w-[140px]">When</th>
-                    <th className="text-left px-5 py-3 w-[100px]">Actions</th>
+                    <th className="text-left px-5 py-3 w-35">When</th>
+                    <th className="text-left px-5 py-3 w-25">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -420,7 +420,7 @@ function FilterSelect({
         {label}
       </label>
       <Select value={value} onValueChange={(v) => v && onChange(v)}>
-        <SelectTrigger className="min-w-[180px]">
+        <SelectTrigger className="min-w-45">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

@@ -247,7 +247,7 @@ export default function LogsPage() {
                     </div>
 
                     {/* Severity badge */}
-                    <div className="shrink-0 w-[90px]">
+                    <div className="shrink-0 w-22.5">
                       <span className={cn(
                         "px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider",
                         logLevelColor[(log.level as string).toLowerCase()] ?? "text-muted-foreground bg-muted border border-border"
@@ -257,7 +257,7 @@ export default function LogsPage() {
                     </div>
 
                     {/* Server hostname */}
-                    <div className="shrink-0 w-[120px] truncate text-primary/70">
+                    <div className="shrink-0 w-30 truncate text-primary/70">
                       {servers.find((s) => s._id === log.server_id)?.hostname ?? log.server_id}
                     </div>
 

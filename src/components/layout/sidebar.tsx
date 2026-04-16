@@ -11,9 +11,9 @@ import {
   Shield,
   Terminal,
   Settings,
-  Activity,
   X,
 } from "lucide-react";
+import Image from "next/image";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -33,7 +33,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const navLink = (href: string, label: string, Icon: React.ElementType) => {
-    const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+    const active =
+      pathname === href || (href !== "/" && pathname.startsWith(href));
     return (
       <Link
         key={href}
@@ -43,16 +44,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
           active
             ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
       >
-        <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary-foreground")} />
+        <Icon
+          className={cn(
+            "h-4 w-4 shrink-0",
+            active && "text-primary-foreground",
+          )}
+        />
         {label}
         {label === "Incidents" && (
-          <span className={cn(
-            "ml-auto flex h-4 min-w-4 items-center justify-center rounded-full text-[10px] font-bold px-1",
-            active ? "bg-white/20 text-white" : "bg-danger/15 text-danger"
-          )}>
+          <span
+            className={cn(
+              "ml-auto flex h-4 min-w-4 items-center justify-center rounded-full text-[10px] font-bold px-1",
+              active ? "bg-white/20 text-white" : "bg-danger/15 text-danger",
+            )}
+          >
             !
           </span>
         )}
@@ -73,21 +81,23 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       {/* Sidebar panel */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-full w-[240px] flex flex-col border-r border-border bg-card z-50 transition-transform duration-300",
+          "fixed left-0 top-0 h-full w-60 flex flex-col border-r border-border bg-card z-50 transition-transform duration-300",
           // Mobile: slide in/out. Desktop: always visible.
           "lg:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
         {/* Logo */}
         <div className="flex items-center justify-between gap-3 px-5 h-14 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-              <Activity className="h-4 w-4 text-white" />
+            <div className="flex w-8 h-8 items-center justify-center rounded-lg">
+              <Image src="/logo.webp" alt="" width={50} height={50} />
             </div>
             <div>
               <p className="text-sm font-bold leading-none">Sentinel Core</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">SecOps Platform</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                SecOps Platform
+              </p>
             </div>
           </div>
           {/* Close button — mobile only */}
@@ -104,7 +114,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2 mb-2">
             Navigation
           </p>
-          {navItems.map(({ href, label, icon: Icon }) => navLink(href, label, Icon))}
+          {navItems.map(({ href, label, icon: Icon }) =>
+            navLink(href, label, Icon),
+          )}
 
           <div className="pt-4">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2 mb-2">
@@ -122,7 +134,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate">Admin</p>
-              <p className="text-[10px] text-muted-foreground truncate">SecOps Administrator</p>
+              <p className="text-[10px] text-muted-foreground truncate">
+                SecOps Administrator
+              </p>
             </div>
           </div>
         </div>

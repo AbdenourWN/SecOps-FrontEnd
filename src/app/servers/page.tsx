@@ -13,7 +13,6 @@ import {
   Shield,
   Plus,
   Terminal,
-  RefreshCw,
   Activity,
   X,
   Search,
@@ -68,7 +67,7 @@ export default function ServersPage() {
   const { data: allData }     = useServers({ page: 1, page_size: 1 });
   const { data: onlineData }  = useServers({ status: "online",  page: 1, page_size: 1 });
   const { data: offlineData } = useServers({ status: "offline", page: 1, page_size: 1 });
-  const { data: openIncidentsData } = useIncidents({ status: "open", page_size: 200 });
+  const { data: openIncidentsData } = useIncidents({ status: "open" });
   const openIncidents = openIncidentsData?.results ?? [];
   const deleteServer = useDeleteServer();
   const createServer = useCreateServer();
@@ -361,7 +360,7 @@ export default function ServersPage() {
                               : "text-muted-foreground",
                           )}
                         >
-                          {incidentCount}
+                          {incidentCount > 10 ? "10+" : incidentCount}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 text-muted-foreground">

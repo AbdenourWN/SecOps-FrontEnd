@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Search, Bell, Settings, Sun, Moon, Menu } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/providers/auth-provider";
@@ -12,9 +11,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { user } = useAuth();
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const { resolvedTheme, setTheme } = useTheme();
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/80 backdrop-blur-md px-4 md:px-6">
@@ -48,15 +45,13 @@ export function Header({ onMenuClick }: HeaderProps) {
       <div className="flex items-center gap-2">
         {/* Theme toggle */}
         <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
           className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           aria-label="Toggle theme"
+          suppressHydrationWarning
         >
-          {mounted && theme === "dark" ? (
-            <Sun className="h-4 w-4" />
-          ) : (
-            <Moon className="h-4 w-4" />
-          )}
+          <Sun className="hidden h-4 w-4 dark:block" />
+          <Moon className="block h-4 w-4 dark:hidden" />
         </button>
 
         {/* Notification bell */}

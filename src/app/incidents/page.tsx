@@ -48,7 +48,7 @@ export default function IncidentsPage() {
               <Shield className="h-3.5 w-3.5" />
               THREAT INTELLIGENCE
             </div>
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
               Security Incidents
             </h1>
             <p className="text-muted-foreground mt-2 max-w-xl leading-relaxed">

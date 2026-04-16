@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   title: "Sentinel Core — SecOps Intelligence",
   description:
     "Security Operations automation platform — server monitoring, incident management, and automated threat response.",
+  icons: {
+    icon: "/logo.webp",
+  },
 };
 
 export default function RootLayout({
