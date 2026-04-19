@@ -55,7 +55,16 @@ export function useDeleteServer() {
 
 export function useExecuteCommand() {
   return useMutation({
-    mutationFn: ({ id, command }: { id: string; command: string }) =>
-      serversApi.execute(id, command),
+    mutationFn: ({
+      id,
+      command,
+      confirmed,
+      timeout_s,
+    }: {
+      id: string;
+      command: string;
+      confirmed?: boolean;
+      timeout_s?: number;
+    }) => serversApi.execute(id, command, { confirmed, timeout_s }),
   });
 }

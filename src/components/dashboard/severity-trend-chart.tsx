@@ -24,12 +24,12 @@ const mockTrendData = [
 
 export function SeverityTrendChart() {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="rounded-xl border border-border bg-card max-[400px]:px-2 px-5 py-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold">
+        <h3 className="text-sm font-semibold max-[400px]:max-w-30">
           Incident Severity Trend (7 Days)
         </h3>
-        <div className="flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-4 text-xs max-[400px]:flex-col">
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-sm bg-red-500" />
             CRITICAL

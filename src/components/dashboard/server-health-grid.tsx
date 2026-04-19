@@ -103,7 +103,7 @@ function ServerCard({
       </div>
 
       {/* Metrics grid */}
-      <div className="grid grid-cols-3 gap-5 mb-4">
+      <div className="grid grid-cols-3 gap-5 mb-4 max-[400px]:grid-cols-2">
         <MetricBlock
           label="CPU LOAD"
           value={cpu}
@@ -169,7 +169,7 @@ export function ServerHealthGrid() {
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 max-[400px]:flex-col gap-2 max-[400px]:text-center">
         <div>
           <h2 className="text-sm font-bold">Server Health Overview</h2>
           <p className="text-xs text-muted-foreground mt-0.5">

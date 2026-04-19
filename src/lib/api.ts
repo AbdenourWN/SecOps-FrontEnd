@@ -2,7 +2,11 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8500";
 
 export class ApiError extends Error {
-  constructor(public status: number, public detail: string) {
+  constructor(
+    public status: number,
+    public detail: string,
+    public body?: unknown,
+  ) {
     super(detail);
   }
 }
@@ -53,7 +57,10 @@ async function request<T>(
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new ApiError(res.status, error.detail || "Request failed");
+    const detail = typeof error?.detail === "string"
+      ? error.detail
+      : (error?.detail?.error ?? error?.detail?.blocked_reason ?? "Request failed");
+    throw new ApiError(res.status, detail, error?.detail ?? error);
   }
 
   if (res.status === 204) return undefined as T;

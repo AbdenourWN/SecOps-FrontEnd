@@ -25,7 +25,7 @@ export function ExecuteCommand({ serverId }: ExecuteCommandProps) {
         id: serverId,
         command: command.trim(),
       });
-      setOutput(result.output);
+      setOutput(result.output ?? result.error ?? "");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to execute command"
