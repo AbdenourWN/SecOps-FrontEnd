@@ -3,12 +3,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { rulesApi } from "@/lib/api/rules";
 import type { DetectionRuleCreate, RuleFilters } from "@/lib/types";
+import { useWsInvalidator } from "@/lib/hooks/use-ws-invalidator";
 
 export function useRules(filters?: RuleFilters) {
+  useWsInvalidator("rules", [["rules"]]);
   return useQuery({
     queryKey: ["rules", filters],
     queryFn: () => rulesApi.list(filters),
-    refetchInterval: 60_000,
+    refetchInterval: 300_000,
     placeholderData: (prev) => prev,
   });
 }

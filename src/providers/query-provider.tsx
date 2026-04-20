@@ -1,7 +1,8 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { wsClient } from "@/lib/ws";
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
   const [client] = useState(
@@ -15,6 +16,11 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
         },
       })
   );
+
+  useEffect(() => {
+    wsClient.connect();
+    return () => wsClient.close();
+  }, []);
 
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }

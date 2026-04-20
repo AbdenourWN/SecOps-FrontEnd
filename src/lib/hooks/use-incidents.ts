@@ -3,12 +3,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { incidentsApi } from "@/lib/api/incidents";
 import type { IncidentStatus, IncidentFilters } from "@/lib/types";
+import { useWsInvalidator } from "@/lib/hooks/use-ws-invalidator";
 
 export function useIncidents(filters?: IncidentFilters) {
+  useWsInvalidator("incidents", [["incidents"]]);
   return useQuery({
     queryKey: ["incidents", filters],
     queryFn: () => incidentsApi.list(filters),
-    refetchInterval: 15_000,
+    refetchInterval: 300_000,
     placeholderData: (prev) => prev,
   });
 }
@@ -22,10 +24,11 @@ export function useIncident(id: string) {
 }
 
 export function useIncidentStats() {
+  useWsInvalidator("incidents", [["incidents", "stats"]]);
   return useQuery({
     queryKey: ["incidents", "stats"],
     queryFn: incidentsApi.getStats,
-    refetchInterval: 15_000,
+    refetchInterval: 300_000,
   });
 }
 

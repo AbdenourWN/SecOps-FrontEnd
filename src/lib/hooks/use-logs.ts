@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { logsApi } from "@/lib/api/logs";
 import type { LogLevel, LogSourceCreate, LogSourceUpdate } from "@/lib/types";
+import { useWsInvalidator } from "@/lib/hooks/use-ws-invalidator";
 
 type LogSearchParams = {
   q?: string;
@@ -24,21 +25,23 @@ export function useLogSearch(params: LogSearchParams, enabled = false) {
 }
 
 export function useServerLogs(serverId: string, limit = 100) {
+  useWsInvalidator("servers.logs", [["logs", serverId, limit]]);
   return useQuery({
     queryKey: ["logs", serverId, limit],
     queryFn: () => logsApi.getByServer(serverId, limit),
     enabled: !!serverId,
-    refetchInterval: 30_000,
+    refetchInterval: 300_000,
   });
 }
 
 // ── Log sources ──────────────────────────────────────────────────────
 export function useLogSources(serverId: string) {
+  useWsInvalidator("log.sources", [["log-sources", serverId]]);
   return useQuery({
     queryKey: ["log-sources", serverId],
     queryFn: () => logsApi.listSources(serverId),
     enabled: !!serverId,
-    refetchInterval: 30_000,
+    refetchInterval: 300_000,
   });
 }
 

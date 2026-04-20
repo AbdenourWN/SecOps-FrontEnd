@@ -11,7 +11,7 @@ export class ApiError extends Error {
   }
 }
 
-function getAuthToken(): string | null {
+export function getAuthToken(): string | null {
   // P4: return localStorage.getItem("access_token");
   return null;
 }
