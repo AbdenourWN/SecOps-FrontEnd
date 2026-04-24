@@ -1,5 +1,5 @@
 // API client using the exact same pattern as the reference frontend
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8500";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8900";
 
 export class ApiError extends Error {
   constructor(

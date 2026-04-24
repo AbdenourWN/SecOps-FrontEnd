@@ -1,26 +1,37 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Lock,
   Terminal,
   RefreshCw,
   AlertTriangle,
   ShieldAlert,
+  Square,
 } from "lucide-react";
-import { useExecuteCommand } from "@/lib/hooks/use-servers";
 import {
-  BlockedError,
-  ConfirmationRequiredError,
-  RateLimitedError,
-} from "@/lib/api/servers";
+  TerminalWsClient,
+  type TerminalConnectionStatus,
+  type ChunkEvent,
+  type DoneEvent,
+  type ErrorEvent,
+} from "@/lib/terminal-ws";
 import { cn } from "@/lib/utils";
 import type { ServerResponse } from "@/lib/types";
+
+type EntryKind =
+  | "ok"
+  | "error"
+  | "blocked"
+  | "rate_limited"
+  | "cancelled"
+  | "timeout"
+  | "aborted";
 
 type TerminalEntry = {
   command: string;
   output: string;
-  kind: "ok" | "error" | "blocked" | "rate_limited" | "cancelled" | "timeout";
+  kind: EntryKind;
 };
 
 interface TerminalTabProps {
@@ -28,24 +39,37 @@ interface TerminalTabProps {
 }
 
 export function TerminalTab({ server }: TerminalTabProps) {
-  const executeCommand = useExecuteCommand();
-
+  // --- Auth gate (unchanged mock; will be replaced in P4.5) ---
   const [authed, setAuthed] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
 
+  // --- Terminal state ---
   const [command, setCommand] = useState("");
   const [history, setHistory] = useState<TerminalEntry[]>([]);
 
-  // Confirm dialog for dangerous-but-legitimate commands.
+  // --- Streaming state ---
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingCommand, setStreamingCommand] = useState<string | null>(null);
+  // Raw chunk buffer — flushed to React state via RAF for smooth rendering
+  const chunkBufferRef = useRef<string>("");
+  const [streamingOutput, setStreamingOutput] = useState("");
+  const rafRef = useRef<number | null>(null);
+
+  // --- WS connection status ---
+  const [connStatus, setConnStatus] =
+    useState<TerminalConnectionStatus>("idle");
+  const wsRef = useRef<TerminalWsClient | null>(null);
+
+  // --- Confirm dialog ---
   const [pendingConfirm, setPendingConfirm] = useState<{
     command: string;
     reason: string;
   } | null>(null);
   const [confirmHostname, setConfirmHostname] = useState("");
 
-  // Rate-limit countdown (seconds remaining). 0 = not limited.
+  // --- Rate-limit countdown ---
   const [cooldown, setCooldown] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -64,26 +88,177 @@ export function TerminalTab({ server }: TerminalTabProps) {
     : "df -h, uptime, ps aux";
   const promptColor = isWindows ? "text-sky-300" : "text-green-400";
 
+  // --- Scroll to bottom on output changes ---
   useEffect(() => {
     if (authed && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [history, executeCommand.isPending, authed]);
+  }, [history, streamingOutput, isStreaming, authed]);
 
+  // --- Cooldown timer ---
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = setTimeout(() => setCooldown((n) => Math.max(0, n - 1)), 1000);
     return () => clearTimeout(t);
   }, [cooldown]);
 
+  // --- RAF chunk flush ---
+  const flushChunks = useCallback(() => {
+    rafRef.current = null;
+    const data = chunkBufferRef.current;
+    if (data) {
+      setStreamingOutput((prev) => prev + data);
+      chunkBufferRef.current = "";
+    }
+  }, []);
+
+  const queueChunk = useCallback(
+    (data: string) => {
+      chunkBufferRef.current += data;
+      if (rafRef.current === null) {
+        rafRef.current = requestAnimationFrame(flushChunks);
+      }
+    },
+    [flushChunks]
+  );
+
+  // --- Connect WS when authed, disconnect on unmount/logout ---
+  useEffect(() => {
+    if (!authed) return;
+
+    const client = new TerminalWsClient(server._id, {
+      onStatusChange: setConnStatus,
+      onStarted: (e) => {
+        setIsStreaming(true);
+        setStreamingCommand(e.command);
+        chunkBufferRef.current = "";
+        setStreamingOutput("");
+      },
+      onChunk: (e: ChunkEvent) => {
+        queueChunk(e.data);
+      },
+      onDone: (e: DoneEvent) => {
+        // Cancel any pending RAF and flush remaining buffer
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+        const finalOutput = chunkBufferRef.current;
+        chunkBufferRef.current = "";
+
+        const fullOutput = streamingOutputRef.current + finalOutput;
+
+        setHistory((h) => [
+          ...h,
+          {
+            command: streamingCommandRef.current ?? "",
+            output: fullOutput || (e.status === "success" ? "(no output)" : `[${e.status}]`),
+            kind:
+              e.status === "success"
+                ? "ok"
+                : e.status === "timeout"
+                ? "timeout"
+                : e.status === "aborted"
+                ? "aborted"
+                : "error",
+          },
+        ]);
+        setIsStreaming(false);
+        setStreamingCommand(null);
+        setStreamingOutput("");
+      },
+      onError: (e: ErrorEvent) => {
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+        chunkBufferRef.current = "";
+        setIsStreaming(false);
+        setStreamingCommand(null);
+        setStreamingOutput("");
+
+        if (e.code === "requires_confirmation") {
+          // pendingConfirm was set before run; this confirms the server agrees
+          // (server sends error so client can show the dialog again if needed)
+          if (!pendingConfirmRef.current) {
+            setPendingConfirm({
+              command: lastCommandRef.current,
+              reason: e.message,
+            });
+          }
+          return;
+        }
+        if (e.code === "blocked") {
+          setHistory((h) => [
+            ...h,
+            {
+              command: lastCommandRef.current,
+              output: `Blocked: ${e.message}`,
+              kind: "blocked",
+            },
+          ]);
+          return;
+        }
+        if (e.code === "rate_limited") {
+          setCooldown(e.retry_after_s ?? 30);
+          setHistory((h) => [
+            ...h,
+            {
+              command: lastCommandRef.current,
+              output: `Rate limited — try again in ${e.retry_after_s ?? "?"}s.`,
+              kind: "rate_limited",
+            },
+          ]);
+          return;
+        }
+        setHistory((h) => [
+          ...h,
+          {
+            command: lastCommandRef.current,
+            output: e.message || `Error: ${e.code}`,
+            kind: "error",
+          },
+        ]);
+      },
+    });
+
+    wsRef.current = client;
+    client.connect();
+
+    return () => {
+      client.disconnect();
+      wsRef.current = null;
+      setConnStatus("idle");
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authed, server._id]);
+
+  // Refs to capture current values inside WS callbacks (avoid stale closures)
+  const streamingOutputRef = useRef("");
+  const streamingCommandRef = useRef<string | null>(null);
+  const pendingConfirmRef = useRef(pendingConfirm);
+  const lastCommandRef = useRef("");
+
+  useEffect(() => {
+    streamingOutputRef.current = streamingOutput;
+  }, [streamingOutput]);
+
+  useEffect(() => {
+    streamingCommandRef.current = streamingCommand;
+  }, [streamingCommand]);
+
+  useEffect(() => {
+    pendingConfirmRef.current = pendingConfirm;
+  }, [pendingConfirm]);
+
+  // --- Auth gate ---
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authPassword) return;
     setAuthLoading(true);
     setAuthError(null);
     try {
-      // TODO: wire real auth verification once backend auth lands, e.g.:
-      // await api.post("/auth/verify-password", { password: authPassword });
+      // Mocked gate — replaced with real POST /auth/verify-password in P4.5
       await new Promise((r) => setTimeout(r, 350));
       setAuthed(true);
       setAuthPassword("");
@@ -95,6 +270,8 @@ export function TerminalTab({ server }: TerminalTabProps) {
   };
 
   const disconnect = () => {
+    wsRef.current?.disconnect();
+    wsRef.current = null;
     setAuthed(false);
     setHistory([]);
     setCommand("");
@@ -103,91 +280,45 @@ export function TerminalTab({ server }: TerminalTabProps) {
     setPendingConfirm(null);
     setConfirmHostname("");
     setCooldown(0);
+    setIsStreaming(false);
+    setStreamingCommand(null);
+    setStreamingOutput("");
   };
 
-  const runCommand = async (cmd: string, confirmed: boolean) => {
-    try {
-      const result = await executeCommand.mutateAsync({
-        id: server._id,
-        command: cmd,
-        confirmed,
-      });
-      if (result.status === "timeout") {
-        setHistory((h) => [
-          ...h,
-          {
-            command: cmd,
-            output:
-              (result.output ? result.output + "\n" : "") +
-              `[timed out after ${result.timeout_s ?? "?"}s]`,
-            kind: "timeout",
-          },
-        ]);
-        return;
-      }
-      setHistory((h) => [
-        ...h,
-        {
-          command: cmd,
-          output:
-            result.output ||
-            (result.status === "success"
-              ? "(no output)"
-              : result.error || "(no output)"),
-          kind: result.status === "success" ? "ok" : "error",
-        },
-      ]);
-    } catch (err) {
-      if (err instanceof ConfirmationRequiredError) {
-        setPendingConfirm({ command: cmd, reason: err.reason });
-        return;
-      }
-      if (err instanceof BlockedError) {
-        setHistory((h) => [
-          ...h,
-          { command: cmd, output: `Blocked: ${err.reason}`, kind: "blocked" },
-        ]);
-        return;
-      }
-      if (err instanceof RateLimitedError) {
-        setCooldown(err.retryAfterSeconds);
-        setHistory((h) => [
-          ...h,
-          {
-            command: cmd,
-            output: `Rate limited — try again in ${err.retryAfterSeconds}s.`,
-            kind: "rate_limited",
-          },
-        ]);
-        return;
-      }
-      setHistory((h) => [
-        ...h,
-        { command: cmd, output: (err as Error).message, kind: "error" },
-      ]);
-    }
+  // --- Run command via WS ---
+  const runCommand = (cmd: string, confirmed: boolean) => {
+    if (!wsRef.current || connStatus !== "authed") return;
+    lastCommandRef.current = cmd;
+    wsRef.current.run(cmd, confirmed);
   };
 
-  const handleExecute = async () => {
+  const handleExecute = () => {
     const cmd = command.trim();
-    if (!cmd) return;
     setCommand("");
+
+    // While a command is streaming, redirect input to its stdin
+    if (isStreaming) {
+      wsRef.current?.sendInput(cmd + "\n");
+      return;
+    }
+
+    if (!cmd) return;
     const lower = cmd.toLowerCase();
     if (lower === "clear" || lower === "cls") {
       setHistory([]);
       return;
     }
     if (cooldown > 0) return;
-    await runCommand(cmd, false);
+    runCommand(cmd, false);
   };
 
-  const confirmAndRun = async () => {
+  const confirmAndRun = () => {
     if (!pendingConfirm) return;
     if (confirmHostname.trim() !== server.hostname) return;
     const cmd = pendingConfirm.command;
     setPendingConfirm(null);
     setConfirmHostname("");
-    await runCommand(cmd, true);
+    runCommand(cmd, true);
   };
 
   const cancelConfirm = () => {
@@ -204,6 +335,28 @@ export function TerminalTab({ server }: TerminalTabProps) {
     setConfirmHostname("");
   };
 
+  const handleAbort = () => {
+    wsRef.current?.abort();
+  };
+
+  // --- Connection status dot ---
+  const statusDot = {
+    idle: "bg-zinc-500",
+    connecting: "bg-amber-400 animate-pulse",
+    authed: "bg-green-400 animate-pulse",
+    disconnected: "bg-red-500",
+    error: "bg-red-500",
+  }[connStatus];
+
+  const statusLabel = {
+    idle: "idle",
+    connecting: "connecting",
+    authed: "connected",
+    disconnected: "disconnected",
+    error: "error",
+  }[connStatus];
+
+  // --- Auth screen ---
   if (!authed) {
     return (
       <div className="rounded-2xl border border-border bg-card p-8 max-w-md mx-auto shadow-xl">
@@ -279,6 +432,7 @@ export function TerminalTab({ server }: TerminalTabProps) {
             : "border-zinc-800 bg-zinc-950",
         )}
       >
+        {/* Title bar */}
         <div
           className={cn(
             "flex items-center justify-between px-4 py-2 border-b shrink-0",
@@ -301,16 +455,44 @@ export function TerminalTab({ server }: TerminalTabProps) {
             >
               {titleBarText}
             </span>
-            <span className="flex items-center gap-1 text-[10px] font-mono text-green-400 ml-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-              connected
+            {/* WS connection status dot */}
+            <span className="flex items-center gap-1 text-[10px] font-mono ml-2">
+              <span
+                className={cn("h-1.5 w-1.5 rounded-full", statusDot)}
+              />
+              <span
+                className={cn(
+                  connStatus === "authed"
+                    ? "text-green-400"
+                    : connStatus === "connecting"
+                    ? "text-amber-400"
+                    : "text-red-400",
+                )}
+              >
+                {statusLabel}
+              </span>
             </span>
           </div>
           <div className="flex items-center gap-1">
+            {isStreaming && (
+              <button
+                onClick={handleAbort}
+                className={cn(
+                  "flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded transition-colors",
+                  isWindows
+                    ? "text-red-300 hover:text-red-200 hover:bg-sky-900/60"
+                    : "text-red-400 hover:text-red-300 hover:bg-zinc-800",
+                )}
+              >
+                <Square className="h-2.5 w-2.5 fill-current" />
+                cancel
+              </button>
+            )}
             <button
               onClick={() => setHistory([])}
+              disabled={isStreaming}
               className={cn(
-                "text-[11px] font-mono px-2 py-1 rounded transition-colors",
+                "text-[11px] font-mono px-2 py-1 rounded transition-colors disabled:opacity-40",
                 isWindows
                   ? "text-sky-300 hover:text-white hover:bg-sky-900/60"
                   : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800",
@@ -332,6 +514,7 @@ export function TerminalTab({ server }: TerminalTabProps) {
           </div>
         </div>
 
+        {/* Output area */}
         <div
           ref={scrollRef}
           onClick={() => inputRef.current?.focus()}
@@ -348,11 +531,9 @@ export function TerminalTab({ server }: TerminalTabProps) {
               <div className="text-sky-300/80 mb-1">
                 Copyright (C) Microsoft Corporation. All rights reserved.
               </div>
-              <div className="text-sky-300/60 text-[11px] mb-4">
+              <div className="text-sky-300/60 text-[11px] mb-1">
                 Session opened {new Date().toLocaleString()} on{" "}
-                {server.ip_address}. Non-interactive — chain with{" "}
-                <span className="text-sky-100">;</span> or pipelines. Try:{" "}
-                {commandExamples}. Type{" "}
+                {server.ip_address}. Try: {commandExamples}. Type{" "}
                 <span className="text-sky-100">cls</span> to clear.
               </div>
             </>
@@ -361,15 +542,34 @@ export function TerminalTab({ server }: TerminalTabProps) {
               <div className="text-green-400">
                 Connected to {server.ip_address} ({server.hostname}) as admin.
               </div>
-              <div className="text-zinc-500 text-[11px] mb-4">
+              <div className="text-zinc-500 text-[11px] mb-1">
                 Session opened {new Date().toLocaleString()} — commands run via
-                SecOps relay. Non-interactive — chain with{" "}
-                <span className="text-zinc-300">cd X &amp;&amp; ...</span>. Try:{" "}
-                {commandExamples}. Type{" "}
+                SecOps relay. Try: {commandExamples}. Type{" "}
                 <span className="text-zinc-300">clear</span> to reset the screen.
               </div>
             </>
           )}
+
+          {/* Limitations notice */}
+          <div
+            className={cn(
+              "text-[10px] rounded px-2 py-1.5 mb-3 border leading-relaxed",
+              isWindows
+                ? "bg-sky-900/30 border-sky-800/50 text-sky-300/70"
+                : "bg-zinc-800/60 border-zinc-700/50 text-zinc-500",
+            )}
+          >
+            <span className="font-semibold">
+              {isWindows ? "⚠ Non-interactive relay" : "⚠ Non-interactive relay"}
+            </span>{" "}
+            — This is not a full {isWindows ? "PowerShell" : "Bash"} session.
+            Commands run via {isWindows ? "WinRM" : "SSH"} with a 60 s timeout.{" "}
+            {isWindows
+              ? "Interactive prompts (Read-Host, confirmations), coloured output and commands that require a real console (e.g. winget, diskpart) will not work. Chain commands with semicolons or pipelines."
+              : "Interactive prompts (sudo, passwd, apt confirm), terminal apps (top, vim, htop) and Ctrl+C signals will not work. Chain commands with && or pipes. Stdin passthrough is available while a command streams."}
+          </div>
+
+          {/* Completed history entries */}
           {history.map((entry, i) => (
             <div key={i} className="mb-3">
               <div className="flex items-start gap-2">
@@ -396,6 +596,7 @@ export function TerminalTab({ server }: TerminalTabProps) {
                     entry.kind === "error" && "text-red-400",
                     entry.kind === "blocked" && "text-red-400",
                     entry.kind === "timeout" && "text-red-400",
+                    entry.kind === "aborted" && "text-amber-300",
                     entry.kind === "rate_limited" && "text-amber-300",
                     entry.kind === "cancelled" && "text-zinc-500 italic",
                     entry.kind === "ok" &&
@@ -407,23 +608,49 @@ export function TerminalTab({ server }: TerminalTabProps) {
               )}
             </div>
           ))}
-          {executeCommand.isPending && (
-            <div
-              className={cn(
-                "flex items-center gap-2 mb-2",
-                isWindows ? "text-sky-300/70" : "text-zinc-500",
+
+          {/* Live streaming entry */}
+          {isStreaming && streamingCommand !== null && (
+            <div className="mb-3">
+              <div className="flex items-start gap-2">
+                <span className={cn("shrink-0", promptColor)}>
+                  {promptPrefix}
+                </span>
+                <span className={isWindows ? "text-sky-100" : "text-zinc-100"}>
+                  {streamingCommand}
+                </span>
+              </div>
+              {streamingOutput && (
+                <pre
+                  className={cn(
+                    "mt-1 whitespace-pre-wrap break-all",
+                    isWindows ? "text-sky-50" : "text-zinc-300",
+                  )}
+                >
+                  {streamingOutput}
+                </pre>
               )}
-            >
-              <RefreshCw className="h-3 w-3 animate-spin" />
-              <span className="text-[12px]">executing...</span>
+              <div
+                className={cn(
+                  "flex items-center gap-2 mt-1",
+                  isWindows ? "text-sky-300/70" : "text-zinc-500",
+                )}
+              >
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                <span className="text-[12px]">streaming...</span>
+              </div>
             </div>
           )}
+
+          {/* Rate limit banner */}
           {cooldown > 0 && (
             <div className="flex items-center gap-2 mb-2 text-amber-300 text-[12px]">
               <AlertTriangle className="h-3 w-3" />
               rate limited — {cooldown}s
             </div>
           )}
+
+          {/* Input prompt — active even while streaming (stdin passthrough) */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -431,13 +658,22 @@ export function TerminalTab({ server }: TerminalTabProps) {
             }}
             className="flex items-start gap-2"
           >
-            <span className={cn("shrink-0", promptColor)}>{promptPrefix}</span>
+            <span
+              className={cn(
+                "shrink-0 font-mono text-[13px]",
+                isStreaming
+                  ? "text-amber-400/80"
+                  : promptColor,
+              )}
+            >
+              {isStreaming ? "stdin>" : promptPrefix}
+            </span>
             <input
               ref={inputRef}
               autoFocus
               value={command}
               onChange={(e) => setCommand(e.target.value)}
-              disabled={executeCommand.isPending || cooldown > 0}
+              disabled={cooldown > 0}
               spellCheck={false}
               autoCapitalize="off"
               autoCorrect="off"
@@ -452,6 +688,7 @@ export function TerminalTab({ server }: TerminalTabProps) {
         </div>
       </div>
 
+      {/* Confirm dangerous command dialog */}
       {pendingConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">

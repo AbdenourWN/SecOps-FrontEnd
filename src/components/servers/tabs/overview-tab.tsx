@@ -71,9 +71,11 @@ function GaugeCard({
 interface OverviewTabProps {
   serverId: string;
   incidents: IncidentResponse[];
+  osType?: string;
 }
 
-export function OverviewTab({ serverId, incidents }: OverviewTabProps) {
+export function OverviewTab({ serverId, incidents, osType }: OverviewTabProps) {
+  const isWindows = osType === "windows";
   const { data: metrics } = useServerMetrics(serverId, 30);
 
   const latestMetric = metrics?.[0];
@@ -91,6 +93,7 @@ export function OverviewTab({ serverId, incidents }: OverviewTabProps) {
       }),
       cpu: Number(m.cpu_usage.toFixed(1)),
       ram: Number(m.ram_usage.toFixed(1)),
+      disk: Number(m.disk_usage.toFixed(1)),
     }));
 
   return (
@@ -122,7 +125,7 @@ export function OverviewTab({ serverId, incidents }: OverviewTabProps) {
             <div>
               <h3 className="text-sm font-semibold">Resource Telemetry</h3>
               <p className="text-xs text-muted-foreground">
-                Live CPU and RAM over time
+                CPU, RAM and Disk over time
               </p>
             </div>
           </div>
@@ -141,6 +144,10 @@ export function OverviewTab({ serverId, incidents }: OverviewTabProps) {
                   <linearGradient id="ramGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="diskGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F97316" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#F97316" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid
@@ -169,6 +176,7 @@ export function OverviewTab({ serverId, incidents }: OverviewTabProps) {
                     color: "#F1F5F9",
                     fontSize: "12px",
                   }}
+                  formatter={(value, name) => [`${Number(value).toFixed(1)}%`, name]}
                 />
                 <Area
                   type="monotone"
@@ -187,15 +195,27 @@ export function OverviewTab({ serverId, incidents }: OverviewTabProps) {
                   strokeDasharray="5 5"
                   name="RAM %"
                 />
+                <Area
+                  type="monotone"
+                  dataKey="disk"
+                  stroke="#F97316"
+                  fill="url(#diskGrad)"
+                  strokeWidth={2}
+                  strokeDasharray="2 4"
+                  name="Disk %"
+                />
               </AreaChart>
             </ResponsiveContainer>
           )}
           <div className="flex items-center gap-6 mt-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-primary" /> CPU %
+              <span className="h-2 w-2 rounded-full bg-blue-500" /> CPU %
             </span>
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-green-400" /> RAM %
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-orange-400" /> Disk %
             </span>
           </div>
         </div>
@@ -246,24 +266,32 @@ export function OverviewTab({ serverId, incidents }: OverviewTabProps) {
             SERVICE HEALTH
           </h3>
           <div className="space-y-3">
-            {[
-              "SSH Service",
-              "Log Collector",
-              "Metric Agent",
-              "Analysis Engine",
-            ].map((svc, i) => (
+            {(isWindows
+              ? [
+                  { label: "WinRM Service",      active: true  },
+                  { label: "Windows Event Log",   active: true  },
+                  { label: "Performance Counters", active: true  },
+                  { label: "Analysis Engine",     active: false },
+                ]
+              : [
+                  { label: "SSH Service",         active: true  },
+                  { label: "Log Collector",       active: true  },
+                  { label: "Metric Agent",        active: true  },
+                  { label: "Analysis Engine",     active: false },
+                ]
+            ).map(({ label, active }) => (
               <div
-                key={svc}
+                key={label}
                 className="flex items-center justify-between py-1.5"
               >
-                <span className="text-sm">{svc}</span>
+                <span className="text-sm">{label}</span>
                 <span
                   className={cn(
                     "text-[10px] font-semibold",
-                    i < 3 ? "text-green-400" : "text-yellow-400",
+                    active ? "text-green-400" : "text-yellow-400",
                   )}
                 >
-                  {i < 3 ? "✅ ACTIVE" : "⚠️ DEGRADED"}
+                  {active ? "✅ ACTIVE" : "⚠️ DEGRADED"}
                 </span>
               </div>
             ))}

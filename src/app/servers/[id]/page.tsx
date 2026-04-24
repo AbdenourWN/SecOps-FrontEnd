@@ -148,7 +148,7 @@ export default function ServerDetailPage({
         </div>
 
         {activeTab === "overview" && (
-          <OverviewTab serverId={id} incidents={incidents} />
+          <OverviewTab serverId={id} incidents={incidents} osType={server.os_type} />
         )}
         {activeTab === "logs" && (
           <LogsTab serverId={id} hostname={server.hostname} />
