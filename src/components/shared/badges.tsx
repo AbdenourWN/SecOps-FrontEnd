@@ -65,6 +65,12 @@ const statusConfig: Record<
   { label: string; color: string; bg: string; icon: string }
 > = {
   open: { label: "OPEN", color: "text-red-400", bg: "bg-red-500/10", icon: "🔴" },
+  verifying: {
+    label: "VERIFYING",
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/10",
+    icon: "🔄",
+  },
   investigating: {
     label: "INVESTIGATING",
     color: "text-yellow-400",

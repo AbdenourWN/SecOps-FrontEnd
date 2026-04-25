@@ -70,7 +70,8 @@ export default function IncidentsPage() {
             </div>
             <button
               onClick={executeSearch}
-              className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:bg-primary/90 transition-all"
+              disabled={!searchInput.trim()}
+              className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               Search
             </button>
@@ -123,7 +124,7 @@ export default function IncidentsPage() {
           </div>
 
           <div className="flex items-center gap-2 bg-muted/30 p-1 rounded-xl border border-border ml-auto">
-            {(["all", "open", "investigating", "resolved"] as const).map((st) => (
+            {(["all", "open", "verifying", "investigating", "resolved"] as const).map((st) => (
               <button
                 key={st}
                 onClick={() => setStatusAndReset(st)}
@@ -204,9 +205,20 @@ export default function IncidentsPage() {
                   </div>
 
                   <div className="flex items-center gap-4 mt-4 sm:mt-0 pl-14 sm:pl-0">
+                    {incident.automation_failure_reason === "remediation_exhausted" && (
+                      <div className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-danger/15 text-danger border border-danger/30">
+                        Exhausted{(incident.remediation_attempts ?? 0) > 0 && ` ×${incident.remediation_attempts}`}
+                      </div>
+                    )}
+                    {incident.status === "verifying" && (incident.remediation_attempts ?? 0) > 1 && !incident.automation_failure_reason && (
+                      <div className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                        Retry ×{incident.remediation_attempts}
+                      </div>
+                    )}
                     <div className={cn(
                       "px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border",
                       incident.status === "open" ? "bg-danger/10 text-danger border-danger/20"
+                      : incident.status === "verifying" ? "bg-cyan-500/10 text-cyan-500 border-cyan-500/20"
                       : incident.status === "investigating" ? "bg-warning/10 text-warning border-warning/20"
                       : incident.status === "resolved" ? "bg-success/10 text-success border-success/20"
                       : "bg-muted text-muted-foreground border-border"

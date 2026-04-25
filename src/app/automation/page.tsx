@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
-import { useScripts, useCreateScript, useDeleteScript } from "@/lib/hooks/use-scripts";
-import { Terminal, Plus, Trash2, Code2, History, Eye, Search } from "lucide-react";
+import { useScripts, useCreateScript, useDeleteScript, useToggleScript } from "@/lib/hooks/use-scripts";
+import { Terminal, Plus, Trash2, Code2, History, Eye, Search, Power, FlaskConical, Shield, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { timeAgo, cn } from "@/lib/utils";
@@ -49,6 +49,7 @@ export default function AutomationPage() {
 
   const createScript = useCreateScript();
   const deleteScript = useDeleteScript();
+  const toggleScript = useToggleScript();
 
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ScriptResponse | null>(null);
@@ -109,7 +110,8 @@ export default function AutomationPage() {
               </div>
               <button
                 onClick={executeSearch}
-                className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:bg-primary/90 transition-all"
+                disabled={!searchInput.trim()}
+                className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 Search
               </button>
@@ -187,57 +189,106 @@ export default function AutomationPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {scripts.map((script) => (
-                <div key={script._id} className="group flex flex-col justify-between rounded-3xl border border-border bg-card p-6 transition-all hover:shadow-xl hover:-translate-y-1 hover:border-primary/40 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => setDeleteTarget(script)}
-                      className="p-2 rounded-lg bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+              {scripts.map((script) => {
+                const isEnabled = script.enabled !== false;
+                const catIcon = script.category === "diagnostic"
+                  ? <FlaskConical className="h-3 w-3" />
+                  : script.category === "containment"
+                    ? <Shield className="h-3 w-3" />
+                    : <RefreshCw className="h-3 w-3" />;
+                const catColor = script.category === "diagnostic"
+                  ? "bg-purple-500/10 text-purple-400"
+                  : script.category === "containment"
+                    ? "bg-orange-500/10 text-orange-400"
+                    : "bg-teal-500/10 text-teal-400";
 
-                  <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className={cn(
-                        "px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider",
-                        script.language === "bash" ? "bg-green-500/10 text-green-500"
-                        : script.language === "python" ? "bg-yellow-500/10 text-yellow-500"
-                        : "bg-blue-500/10 text-blue-500"
-                      )}>
-                        {script.language}
-                      </span>
-                      <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider bg-muted text-muted-foreground">
-                        {script.target_os || "Linux"}
-                      </span>
-                    </div>
+                return (
+                  <div
+                    key={script._id}
+                    className={cn(
+                      "group flex flex-col justify-between rounded-3xl border bg-card p-6 transition-all hover:shadow-xl hover:-translate-y-1 relative overflow-hidden",
+                      isEnabled
+                        ? "border-border hover:border-primary/40"
+                        : "border-border/40 opacity-60 hover:opacity-80"
+                    )}
+                  >
+                    {/* Disabled overlay badge */}
+                    {!isEnabled && (
+                      <div className="absolute top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-muted border border-border text-[9px] font-bold uppercase tracking-widest text-muted-foreground z-10">
+                        DISABLED
+                      </div>
+                    )}
 
-                    <h3 className="text-xl font-bold tracking-tight mb-2 pr-10">{script.name}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 min-h-[40px]">
-                      {script.description || "No description provided for this playbook."}
-                    </p>
-                  </div>
-
-                  <div className="mt-6 pt-4 border-t border-border flex flex-col gap-3">
-                    <div className="bg-muted/50 rounded-xl p-3 font-mono text-xs text-muted-foreground truncate border border-border/50 select-all">
-                      {script.content.split('\n')[0].substring(0, 50)}{script.content.length > 50 ? '...' : ''}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
-                        Created {timeAgo(script.created_at)}
-                      </p>
-                      <Link
-                        href={`/automation/${script._id}`}
-                        className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                    <div className="absolute top-0 right-0 p-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => toggleScript.mutate(script._id)}
+                        title={isEnabled ? "Disable script" : "Enable script"}
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          isEnabled
+                            ? "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500 hover:text-white"
+                            : "bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white"
+                        )}
                       >
-                        <Eye className="h-3.5 w-3.5" />
-                        View
-                      </Link>
+                        <Power className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(script)}
+                        className="p-2 rounded-lg bg-danger/10 text-danger hover:bg-danger hover:text-white transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2 mb-4 flex-wrap">
+                        <span className={cn(
+                          "px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider",
+                          script.language === "bash" ? "bg-green-500/10 text-green-500"
+                          : script.language === "python" ? "bg-yellow-500/10 text-yellow-500"
+                          : "bg-blue-500/10 text-blue-500"
+                        )}>
+                          {script.language}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider bg-muted text-muted-foreground">
+                          {script.target_os || "Linux"}
+                        </span>
+                        {script.category && (
+                          <span className={cn("flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider", catColor)}>
+                            {catIcon}{script.category}
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="text-xl font-bold tracking-tight mb-2 pr-16">{script.name}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 min-h-10">
+                        {script.description || "No description provided for this playbook."}
+                      </p>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-border flex flex-col gap-3">
+                      <div className="bg-muted/50 rounded-xl p-3 font-mono text-xs text-muted-foreground truncate border border-border/50 select-all">
+                        {script.content.split('\n')[0].substring(0, 50)}{script.content.length > 50 ? '...' : ''}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn("h-1.5 w-1.5 rounded-full", isEnabled ? "bg-green-400" : "bg-muted-foreground")} />
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                            {isEnabled ? "Active" : "Disabled"} · {timeAgo(script.created_at)}
+                          </p>
+                        </div>
+                        <Link
+                          href={`/automation/${script._id}`}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          View
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

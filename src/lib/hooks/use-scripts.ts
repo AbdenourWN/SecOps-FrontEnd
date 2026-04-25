@@ -48,6 +48,14 @@ export function useDeleteScript() {
   });
 }
 
+export function useToggleScript() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => scriptsApi.toggle(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["scripts"] }),
+  });
+}
+
 export function useRemediationHistory(
   filters: RemediationHistoryFilters = { limit: 10 }
 ) {

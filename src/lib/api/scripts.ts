@@ -46,6 +46,12 @@ export const scriptsApi = {
   delete: (id: string) =>
     apiClient.delete<{ status: string }>("/api/automation/scripts/" + id),
 
+  toggle: (id: string) =>
+    apiClient.patch<{ status: string; enabled: boolean }>(
+      `/api/automation/scripts/${id}/toggle`,
+      {}
+    ),
+
   history: (filters: RemediationHistoryFilters = {}) =>
     apiClient.get<RemediationRun[]>(
       `/api/automation/history${buildHistoryQuery(filters)}`

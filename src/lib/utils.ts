@@ -43,6 +43,7 @@ export const severityColor: Record<SeverityLevel, string> = {
 
 export const statusColor: Record<IncidentStatus, string> = {
   open: "bg-red-500/15 text-red-400 border-red-500/30",
+  verifying: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
   investigating: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
   resolved: "bg-green-500/15 text-green-400 border-green-500/30",
   false_positive: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",

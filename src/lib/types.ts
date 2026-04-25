@@ -5,7 +5,7 @@
 
 // ── Shared ──────────────────────────────────────────────────
 export type SeverityLevel = "critical" | "high" | "medium" | "low";
-export type IncidentStatus = "open" | "investigating" | "resolved" | "false_positive";
+export type IncidentStatus = "open" | "verifying" | "investigating" | "resolved" | "false_positive";
 // ActionLevel is numeric: 1 = Auto-Remediate, 2 = Remediate+Alert, 3 = Alert Only
 export type ActionLevel = 1 | 2 | 3;
 export type ScriptLanguage = "bash" | "python" | "powershell";
@@ -103,9 +103,15 @@ export interface IncidentResponse {
   status: IncidentStatus;
   detected_at: string;
   resolved_at: string | null;
+  auto_resolved_at?: string | null;
   description: string;
   context: Record<string, string>;
   ai_analysis: string | null;
+  automation_skipped_reason?: "script_disabled" | "script_missing" | null;
+  automation_failure_reason?: "remediation_exhausted" | "permission_denied" | null;
+  remediation_attempts?: number;
+  last_remediation_at?: string | null;
+  verification_until?: string | null;
 }
 
 export interface RecentIncident {
@@ -242,6 +248,8 @@ export interface ScriptResponse {
   description?: string;
   language: ScriptLanguage;
   target_os?: string;
+  category?: "diagnostic" | "containment" | "recovery";
+  enabled: boolean;
   content: string;
   created_at: string;
 }
@@ -251,6 +259,8 @@ export interface ScriptCreate {
   description?: string;
   language: ScriptLanguage;
   target_os?: string;
+  category?: string;
+  enabled?: boolean;
   content: string;
 }
 

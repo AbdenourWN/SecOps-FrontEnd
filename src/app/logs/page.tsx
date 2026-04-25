@@ -115,7 +115,11 @@ export default function LogsPage() {
                 <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-2 block">Target Node</label>
                 <Select value={serverId || "all"} onValueChange={(v) => v && setServerId(v === "all" ? "" : v)}>
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <span className="flex flex-1 text-left text-sm line-clamp-1" data-slot="select-value">
+                      {serverId
+                        ? (servers.find((s) => s._id === serverId)?.hostname ?? serverId)
+                        : <span>All Infrastructure</span>}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Infrastructure</SelectItem>
@@ -186,7 +190,8 @@ export default function LogsPage() {
                 </button>
                 <button
                   onClick={handleSearch}
-                  className="flex-1 md:flex-none px-8 py-3 rounded-xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                  disabled={!query.trim() && !serverId && !level && !fromDate && !toDate}
+                  className="flex-1 md:flex-none px-8 py-3 rounded-xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 transition-all"
                 >
                   Execute
                 </button>

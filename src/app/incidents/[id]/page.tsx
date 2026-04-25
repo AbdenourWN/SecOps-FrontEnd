@@ -21,6 +21,7 @@ import {
   Shield,
   FileText,
   ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Select,
@@ -93,6 +94,7 @@ export default function IncidentDetailPage({
 
   const statuses: IncidentStatus[] = [
     "open",
+    "verifying",
     "investigating",
     "resolved",
     "false_positive",
@@ -119,6 +121,65 @@ export default function IncidentDetailPage({
             </p>
           </div>
         </div>
+
+        {/* Automation skipped banner */}
+        {incident.automation_skipped_reason && (
+          <div className={cn(
+            "flex items-start gap-3 rounded-xl border px-4 py-3 text-sm",
+            incident.automation_skipped_reason === "script_disabled"
+              ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+              : "bg-red-500/10 border-red-500/30 text-red-400"
+          )}>
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <span className="font-semibold">
+                {incident.automation_skipped_reason === "script_disabled"
+                  ? "Automation skipped — linked script is disabled."
+                  : "Automation skipped — linked script was deleted."}
+              </span>
+              <span className="ml-1 text-muted-foreground">
+                {incident.automation_skipped_reason === "script_disabled"
+                  ? "Alert was sent instead. Re-enable the script in the Automation page to restore auto-remediation."
+                  : "Alert was sent instead. Link a new script to this rule to restore auto-remediation."}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Remediation exhausted banner */}
+        {incident.automation_failure_reason === "remediation_exhausted" && (
+          <div className="flex items-start gap-3 rounded-xl border px-4 py-3 text-sm bg-red-500/10 border-red-500/30 text-red-400">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <span className="font-semibold">
+                Auto-remediation exhausted — failed {incident.remediation_attempts ?? 0}× without resolving the issue.
+              </span>
+              <span className="ml-1 text-muted-foreground">
+                The system has stopped retrying for this server + rule. Investigate manually, then resolve this incident to re-arm auto-remediation. If the linked script is the wrong fix for this server, disable it in the Automation page.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Verifying banner */}
+        {incident.status === "verifying" && incident.automation_failure_reason !== "remediation_exhausted" && (
+          <div className="flex items-start gap-3 rounded-xl border px-4 py-3 text-sm bg-cyan-500/10 border-cyan-500/30 text-cyan-400">
+            <RefreshCw className="h-4 w-4 mt-0.5 shrink-0 animate-spin" />
+            <div>
+              <span className="font-semibold">
+                Verifying remediation
+                {(incident.remediation_attempts ?? 0) > 1 && ` (attempt ${incident.remediation_attempts}/3)`}
+                {" — "}
+                {incident.verification_until
+                  ? `auto-resolves at ${new Date(incident.verification_until).toLocaleTimeString()} unless the rule re-fires.`
+                  : "auto-resolves when the verification window passes without recurrence."}
+              </span>
+              <span className="ml-1 text-muted-foreground">
+                If the underlying problem persists, this incident will be retried (up to 3×) before escalating.
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Main Content */}

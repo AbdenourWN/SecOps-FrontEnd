@@ -8,6 +8,9 @@ import {
   AlertTriangle,
   ShieldAlert,
   Square,
+  Clock,
+  Trash2,
+  WifiOff,
 } from "lucide-react";
 import {
   TerminalWsClient,
@@ -71,6 +74,12 @@ export function TerminalTab({ server }: TerminalTabProps) {
 
   // --- Rate-limit countdown ---
   const [cooldown, setCooldown] = useState(0);
+
+  // --- Command history ---
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const historyIndexRef = useRef(-1);
+  const savedCommandRef = useRef("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -295,6 +304,8 @@ export function TerminalTab({ server }: TerminalTabProps) {
   const handleExecute = () => {
     const cmd = command.trim();
     setCommand("");
+    historyIndexRef.current = -1;
+    savedCommandRef.current = "";
 
     // While a command is streaming, redirect input to its stdin
     if (isStreaming) {
@@ -309,7 +320,32 @@ export function TerminalTab({ server }: TerminalTabProps) {
       return;
     }
     if (cooldown > 0) return;
+
+    // Save to history (skip duplicate of most recent)
+    setCommandHistory((prev) => {
+      if (prev[0] === cmd) return prev;
+      return [cmd, ...prev].slice(0, 200);
+    });
+
     runCommand(cmd, false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isStreaming) return;
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (commandHistory.length === 0) return;
+      if (historyIndexRef.current === -1) savedCommandRef.current = command;
+      const next = Math.min(historyIndexRef.current + 1, commandHistory.length - 1);
+      historyIndexRef.current = next;
+      setCommand(commandHistory[next]);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (historyIndexRef.current === -1) return;
+      const next = historyIndexRef.current - 1;
+      historyIndexRef.current = next;
+      setCommand(next === -1 ? savedCommandRef.current : commandHistory[next]);
+    }
   };
 
   const confirmAndRun = () => {
@@ -355,6 +391,28 @@ export function TerminalTab({ server }: TerminalTabProps) {
     disconnected: "disconnected",
     error: "error",
   }[connStatus];
+
+  // --- Offline gate ---
+  if (server.status !== "online") {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-8 max-w-md mx-auto shadow-xl">
+        <div className="flex flex-col items-center text-center">
+          <div className="h-14 w-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4 ring-1 ring-red-500/20">
+            <WifiOff className="h-6 w-6 text-red-400" />
+          </div>
+          <h3 className="text-lg font-bold">Server Unreachable</h3>
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+            <span className="font-mono font-semibold text-foreground">{server.hostname}</span>{" "}
+            is currently{" "}
+            <span className={server.status === "unknown" ? "text-amber-400" : "text-red-400"}>
+              {server.status}
+            </span>
+            . The terminal is unavailable until the server comes back online.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // --- Auth screen ---
   if (!authed) {
@@ -426,7 +484,7 @@ export function TerminalTab({ server }: TerminalTabProps) {
     <>
       <div
         className={cn(
-          "rounded-xl border shadow-2xl overflow-hidden flex flex-col h-[calc(100vh-280px)] min-h-120",
+          "relative rounded-xl border shadow-2xl overflow-hidden flex flex-col h-[calc(100vh-280px)] min-h-120",
           isWindows
             ? "border-sky-900/50 bg-[#012456]"
             : "border-zinc-800 bg-zinc-950",
@@ -499,6 +557,25 @@ export function TerminalTab({ server }: TerminalTabProps) {
               )}
             >
               {isWindows ? "cls" : "clear"}
+            </button>
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              title="Command history (↑↓ arrows)"
+              className={cn(
+                "flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded transition-colors",
+                showHistory
+                  ? isWindows
+                    ? "text-sky-100 bg-sky-900/60"
+                    : "text-zinc-100 bg-zinc-800"
+                  : isWindows
+                    ? "text-sky-300 hover:text-white hover:bg-sky-900/60"
+                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800",
+              )}
+            >
+              <Clock className="h-3 w-3" />
+              {commandHistory.length > 0 && (
+                <span className="text-[9px] tabular-nums">{commandHistory.length}</span>
+              )}
             </button>
             <button
               onClick={disconnect}
@@ -673,6 +750,7 @@ export function TerminalTab({ server }: TerminalTabProps) {
               autoFocus
               value={command}
               onChange={(e) => setCommand(e.target.value)}
+              onKeyDown={handleKeyDown}
               disabled={cooldown > 0}
               spellCheck={false}
               autoCapitalize="off"
@@ -686,6 +764,76 @@ export function TerminalTab({ server }: TerminalTabProps) {
             />
           </form>
         </div>
+
+        {/* Command history panel */}
+        {showHistory && (
+          <div
+            className={cn(
+              "absolute top-9 right-0 z-20 w-72 flex flex-col rounded-bl-xl border-l border-b shadow-2xl",
+              isWindows
+                ? "bg-[#001433]/97 border-sky-900/60"
+                : "bg-zinc-900/97 border-zinc-700/60",
+            )}
+            style={{ maxHeight: "60%" }}
+          >
+            <div
+              className={cn(
+                "flex items-center justify-between px-3 py-2 border-b text-[10px] font-mono font-bold uppercase tracking-wider shrink-0",
+                isWindows ? "border-sky-900/50 text-sky-400" : "border-zinc-800 text-zinc-400",
+              )}
+            >
+              <span>History ({commandHistory.length})</span>
+              <button
+                onClick={() => {
+                  setCommandHistory([]);
+                  historyIndexRef.current = -1;
+                  savedCommandRef.current = "";
+                }}
+                className="flex items-center gap-1 text-red-400 hover:text-red-300 transition-colors"
+                title="Clear history"
+              >
+                <Trash2 className="h-3 w-3" />
+                clear
+              </button>
+            </div>
+            {commandHistory.length === 0 ? (
+              <div className={cn("px-3 py-4 text-[11px] font-mono text-center", isWindows ? "text-sky-600" : "text-zinc-600")}>
+                No commands yet
+              </div>
+            ) : (
+              <div className="overflow-y-auto flex-1 py-1">
+                {commandHistory.map((cmd, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setCommand(cmd);
+                      historyIndexRef.current = i;
+                      setShowHistory(false);
+                      inputRef.current?.focus();
+                    }}
+                    className={cn(
+                      "w-full text-left px-3 py-1.5 text-[12px] font-mono truncate transition-colors",
+                      isWindows
+                        ? "text-sky-200 hover:bg-sky-900/40"
+                        : "text-zinc-300 hover:bg-zinc-800",
+                    )}
+                    title={cmd}
+                  >
+                    {cmd}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div
+              className={cn(
+                "px-3 py-1.5 border-t text-[9px] font-mono shrink-0",
+                isWindows ? "border-sky-900/50 text-sky-700" : "border-zinc-800 text-zinc-600",
+              )}
+            >
+              ↑↓ arrows to navigate · Enter to run
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Confirm dangerous command dialog */}
