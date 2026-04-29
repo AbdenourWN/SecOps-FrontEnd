@@ -59,7 +59,10 @@ export function useToggleScript() {
 export function useRemediationHistory(
   filters: RemediationHistoryFilters = { limit: 10 }
 ) {
-  useWsInvalidator("automation.history", [["automation-history"]]);
+  const topic = filters.server_id
+    ? `servers.${filters.server_id}.automation`
+    : "automation.history";
+  useWsInvalidator(topic, [["automation-history"]]);
   return useQuery({
     queryKey: ["automation-history", filters],
     queryFn: () => scriptsApi.history(filters),
@@ -70,7 +73,10 @@ export function useRemediationHistory(
 export function useRemediationHistoryStats(
   filters: Omit<RemediationHistoryFilters, "limit" | "skip"> = {}
 ) {
-  useWsInvalidator("automation.history", [["automation-history-stats"]]);
+  const topic = filters.server_id
+    ? `servers.${filters.server_id}.automation`
+    : "automation.history";
+  useWsInvalidator(topic, [["automation-history-stats"]]);
   return useQuery({
     queryKey: ["automation-history-stats", filters],
     queryFn: () => scriptsApi.historyStats(filters),

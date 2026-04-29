@@ -11,14 +11,17 @@ import {
   Shield,
   Terminal,
   Settings,
+  Telescope,
   X,
 } from "lucide-react";
 import Image from "next/image";
+import { useAnomalyStats } from "@/lib/hooks/use-anomalies";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/servers", label: "Servers", icon: Server },
   { href: "/incidents", label: "Incidents", icon: AlertTriangle },
+  { href: "/anomalies", label: "Anomalies", icon: Telescope },
   { href: "/logs", label: "Log Viewer", icon: FileText },
   { href: "/rules", label: "Detection Rules", icon: Shield },
   { href: "/automation", label: "Automation", icon: Terminal },
@@ -31,6 +34,8 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { data: anomalyStats } = useAnomalyStats();
+  const pendingAnomalies = anomalyStats?.pending ?? 0;
 
   const navLink = (href: string, label: string, Icon: React.ElementType) => {
     const active =
@@ -62,6 +67,16 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             )}
           >
             !
+          </span>
+        )}
+        {label === "Anomalies" && pendingAnomalies > 0 && (
+          <span
+            className={cn(
+              "ml-auto flex h-4 min-w-4 items-center justify-center rounded-full text-[10px] font-bold px-1.5 tabular-nums",
+              active ? "bg-white/20 text-white" : "bg-cyan-500/15 text-cyan-400",
+            )}
+          >
+            {pendingAnomalies > 99 ? "99+" : pendingAnomalies}
           </span>
         )}
       </Link>

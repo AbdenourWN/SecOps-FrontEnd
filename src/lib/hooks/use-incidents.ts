@@ -44,6 +44,17 @@ export function useUpdateIncidentStatus() {
   });
 }
 
+export function useServerIncidents(serverId: string) {
+  useWsInvalidator(`servers.${serverId}.incidents`, [["incidents", serverId]]);
+  return useQuery({
+    queryKey: ["incidents", serverId],
+    queryFn: () => incidentsApi.list({ server_id: serverId }),
+    enabled: !!serverId,
+    refetchInterval: 300_000,
+    placeholderData: (prev) => prev,
+  });
+}
+
 export function useAiAnalysis() {
   const qc = useQueryClient();
   return useMutation({

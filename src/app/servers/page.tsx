@@ -613,7 +613,7 @@ export default function ServersPage() {
         </Dialog>
 
         {/* Simple inline delete modal without relying on ui components */}
-        {deleteId && (
+        {/* {deleteId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-card w-full max-w-md rounded-2xl border border-border shadow-2xl p-6">
               <h2 className="text-xl font-bold mb-2">Delete Server Node</h2>
@@ -643,7 +643,7 @@ export default function ServersPage() {
               </div>
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </AppShell>
   );

@@ -212,6 +212,7 @@ function NotificationsSection() {
   const [smtpPort, setSmtpPort] = useState("587");
   const [smtpUser, setSmtpUser] = useState("");
   const [smtpPassword, setSmtpPassword] = useState("");
+  const [smtpPasswordStored, setSmtpPasswordStored] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
   // Populate form with existing config once loaded
@@ -222,6 +223,9 @@ function NotificationsSection() {
     if (existing.smtp_host) setSmtpHost(existing.smtp_host);
     if (existing.smtp_port) setSmtpPort(String(existing.smtp_port));
     if (existing.smtp_user) setSmtpUser(existing.smtp_user);
+    // Backend returns "***" when a password is stored — never echo it back.
+    // Track whether one exists so we can show a hint in the UI.
+    setSmtpPasswordStored(existing.smtp_password === "***");
     setInitialized(true);
   }
 
@@ -383,9 +387,12 @@ function NotificationsSection() {
                     type="password"
                     value={smtpPassword}
                     onChange={(e) => setSmtpPassword(e.target.value)}
-                    placeholder="********"
+                    placeholder={smtpPasswordStored ? "Leave blank to keep current password" : "Enter SMTP password"}
                     className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm"
                   />
+                  {smtpPasswordStored && smtpPassword === "" && (
+                    <p className="text-[11px] text-emerald-500 mt-1">A password is currently stored</p>
+                  )}
                 </FieldGroup>
               </div>
               <p className="text-[11px] text-muted-foreground mt-3">

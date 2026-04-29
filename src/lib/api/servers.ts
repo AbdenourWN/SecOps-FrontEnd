@@ -1,5 +1,5 @@
 import { apiClient, ApiError } from "@/lib/api";
-import type { ServerResponse, ServerCreate, ServerUpdate, ServerDelete, ServerFilters, ServerListResponse } from "@/lib/types";
+import type { ServerResponse, ServerCreate, ServerUpdate, ServerDelete, ServerFilters, ServerListResponse, WarmupResetRequest } from "@/lib/types";
 
 export class BlockedError extends Error {
   constructor(public reason: string) {
@@ -57,6 +57,15 @@ export const serversApi = {
 
   delete: (id: string, data: ServerDelete) =>
     apiClient.delete<{ status: string; message: string }>("/api/servers/" + id, data),
+
+  resetWarmup: (id: string, body?: WarmupResetRequest) =>
+    apiClient.post<{ status: string; message: string; warmup_minutes: number; warmup_until: string }>(
+      `/api/servers/${id}/reset-warmup`,
+      body ?? { warmup_minutes: 60, clear_known_patterns: true },
+    ),
+
+  resetBaseline: (id: string) =>
+    apiClient.post<{ status: string; message: string }>(`/api/servers/${id}/reset-baseline`),
 
   // execute does NOT require a password — the stored credential is used
   execute: async (

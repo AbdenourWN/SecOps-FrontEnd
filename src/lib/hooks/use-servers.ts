@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { serversApi } from "@/lib/api/servers";
-import type { ServerCreate, ServerUpdate, ServerDelete, ServerFilters } from "@/lib/types";
+import type { ServerCreate, ServerUpdate, ServerDelete, ServerFilters, WarmupResetRequest } from "@/lib/types";
 import { useWsInvalidator } from "@/lib/hooks/use-ws-invalidator";
 
 export function useServers(filters: ServerFilters = {}) {
@@ -52,6 +52,30 @@ export function useDeleteServer() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["servers"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useResetWarmup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body?: WarmupResetRequest }) =>
+      serversApi.resetWarmup(id, body),
+    onSuccess: (_d, { id }) => {
+      qc.invalidateQueries({ queryKey: ["servers"] });
+      qc.invalidateQueries({ queryKey: ["servers", id] });
+      qc.invalidateQueries({ queryKey: ["anomalies"] });
+    },
+  });
+}
+
+export function useResetBaseline() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => serversApi.resetBaseline(id),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["servers"] });
+      qc.invalidateQueries({ queryKey: ["servers", id] });
     },
   });
 }

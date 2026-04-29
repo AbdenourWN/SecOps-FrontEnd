@@ -25,7 +25,7 @@ export function useLogSearch(params: LogSearchParams, enabled = false) {
 }
 
 export function useServerLogs(serverId: string, limit = 100) {
-  useWsInvalidator("servers.logs", [["logs", serverId, limit]]);
+  useWsInvalidator(`servers.${serverId}.logs`, [["logs", serverId, limit]]);
   return useQuery({
     queryKey: ["logs", serverId, limit],
     queryFn: () => logsApi.getByServer(serverId, limit),
@@ -36,7 +36,7 @@ export function useServerLogs(serverId: string, limit = 100) {
 
 // ── Log sources ──────────────────────────────────────────────────────
 export function useLogSources(serverId: string) {
-  useWsInvalidator("log.sources", [["log-sources", serverId]]);
+  useWsInvalidator(`servers.${serverId}.log_sources`, [["log-sources", serverId]]);
   return useQuery({
     queryKey: ["log-sources", serverId],
     queryFn: () => logsApi.listSources(serverId),

@@ -11,10 +11,11 @@ import { TerminalTab } from "@/components/servers/tabs/terminal-tab";
 import { useRouter } from "next/navigation";
 import { ServerStatusBadge } from "@/components/shared/badges";
 import { timeAgo, cn } from "@/lib/utils";
-import { Trash2, ArrowLeft } from "lucide-react";
+import { Trash2, ArrowLeft, Pencil } from "lucide-react";
 import { useState, use } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { EditServerDialog } from "@/components/servers/server-edit-dialog";
 
 type TabKey = "overview" | "logs" | "sources" | "incidents" | "actions";
 
@@ -36,6 +37,7 @@ export default function ServerDetailPage({
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const handleDelete = async () => {
     if (!deletePassword) return;
@@ -113,14 +115,29 @@ export default function ServerDetailPage({
               <span>Last check: {timeAgo(server.last_health_check)}</span>
             </div>
           </div>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete Server
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowEditDialog(true)}
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete Server
+            </button>
+          </div>
         </div>
+
+        <EditServerDialog
+          server={server}
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+        />
 
         {/* Tabs */}
         <div className="border-b border-border">

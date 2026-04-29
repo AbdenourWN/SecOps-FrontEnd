@@ -196,6 +196,7 @@ export default function AutomationHistoryPage() {
               label="Playbook"
               value={scriptFilter}
               onChange={handleScriptChange}
+              triggerClassName="min-w-64"
               options={[
                 { value: "all", label: "All playbooks" },
                 ...scripts.map((s) => ({
@@ -408,20 +409,26 @@ function FilterSelect({
   value,
   onChange,
   options,
+  triggerClassName,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
+  triggerClassName?: string;
 }) {
+  const displayLabel = options.find((o) => o.value === value)?.label ?? value;
+
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {label}
       </label>
       <Select value={value} onValueChange={(v) => v && onChange(v)}>
-        <SelectTrigger className="min-w-45">
-          <SelectValue />
+        <SelectTrigger className={triggerClassName ?? "min-w-45"}>
+          <span className="flex flex-1 text-left text-sm line-clamp-1" data-slot="select-value">
+            {displayLabel}
+          </span>
         </SelectTrigger>
         <SelectContent>
           {options.map((opt) => (

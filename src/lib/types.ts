@@ -41,15 +41,38 @@ export interface CredentialCreate {
 
 export type ServerStatus = "online" | "offline" | "unknown";
 
+export interface BusinessHours {
+  start: string;        // "HH:MM"
+  end: string;          // "HH:MM"
+  days: number[];       // ISO weekday: 1=Mon..7=Sun
+  tz: string;           // IANA tz; "UTC" recommended
+}
+
 export interface ServerCreate {
   hostname: string;
   ip_address: string;
   os_type: "linux" | "windows";
   port?: number;
   credential: CredentialCreate;
+  business_hours?: BusinessHours;
+  /** 0 = skip warm-up; up to 525_600 = 1 year. Default 60 (1h). */
+  warmup_minutes?: number;
 }
 
-export type ServerUpdate = Partial<ServerCreate>;
+export interface WarmupResetRequest {
+  warmup_minutes: number;
+  clear_known_patterns?: boolean;
+}
+
+export interface ServerUpdate {
+  hostname?: string;
+  ip_address?: string;
+  os_type?: "linux" | "windows";
+  port?: number;
+  business_hours?: BusinessHours;
+  credential?: Partial<CredentialCreate>;
+  current_secret: string;     // REQUIRED — security challenge
+}
 
 export interface ServerDelete {
   current_secret: string;
@@ -65,6 +88,11 @@ export interface ServerResponse {
   credential_id: string;
   last_health_check: string | null;
   created_at: string;
+  // Tier 2 anomaly state (read-only)
+  business_hours?: BusinessHours | null;
+  pattern_warmup_until?: string | null;
+  log_rate_baseline?: number | null;
+  log_rate_updated_at?: string | null;
 }
 
 // ── Metrics ─────────────────────────────────────────────────
@@ -134,6 +162,54 @@ export interface IncidentStats {
   total: number;
   by_status: Record<string, number>;
   by_severity: Record<string, number>;
+}
+
+// ── Anomalies (Tier 2 heuristic observations) ───────────────
+export type AnomalyType = "log" | "volume";
+export type AnomalySeverity = "low" | "medium" | "high";
+export type LogObservationStatus =
+  | "pending_review"
+  | "dismissed"
+  | "promoted_to_incident";
+
+export interface LogObservation {
+  _id: string;
+  server_id: string;
+  server_hostname?: string;
+  type: AnomalyType;
+  log_id?: string | null;
+  log_message?: string | null;
+  log_timestamp?: string | null;
+  reasons: string[];
+  score: number;
+  severity: AnomalySeverity;
+  status: LogObservationStatus;
+  promoted_incident_id?: string | null;
+  detected_at: string;
+  reviewed_at?: string | null;
+}
+
+export interface AnomalyFilters {
+  server_id?: string;
+  status?: LogObservationStatus | "all";
+  severity?: AnomalySeverity | "all";
+  type?: AnomalyType | "all";
+  page?: number;
+  page_size?: number;
+}
+
+export interface AnomalyListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  results: LogObservation[];
+}
+
+export interface AnomalyStats {
+  total: number;
+  pending: number;
+  dismissed: number;
+  promoted: number;
 }
 
 // ── Dashboard ────────────────────────────────────────────────
