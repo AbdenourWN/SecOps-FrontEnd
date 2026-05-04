@@ -9,11 +9,37 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Cpu, HardDrive, MemoryStick, AlertTriangle, Shield } from "lucide-react";
+import {
+  Cpu,
+  HardDrive,
+  MemoryStick,
+  AlertTriangle,
+  Shield,
+  Clock,
+  Settings2,
+  Activity,
+  CalendarDays,
+} from "lucide-react";
 import { SeverityBadge } from "@/components/shared/badges";
 import { useServerMetrics } from "@/lib/hooks/use-metrics";
-import { cn } from "@/lib/utils";
-import type { IncidentResponse } from "@/lib/types";
+import { cn, timeAgo } from "@/lib/utils";
+import type { IncidentResponse, ServerResponse, DetectionConfig } from "@/lib/types";
+
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const DETECTION_FIELDS: {
+  key: keyof DetectionConfig;
+  label: string;
+  unit: string;
+  default: number;
+}[] = [
+  { key: "verification_window_minutes", label: "Verification window", unit: "min", default: 10 },
+  { key: "max_remediation_attempts", label: "Max remediation attempts", unit: "attempts", default: 3 },
+  { key: "incident_lookback_minutes", label: "Dedup lookback", unit: "min", default: 30 },
+  { key: "recurrence_streak_threshold", label: "Recurrence streak", unit: "cycles", default: 3 },
+  { key: "recurrence_lookback_hours", label: "Recurrence lookback", unit: "hrs", default: 2 },
+  { key: "volume_spike_multiplier", label: "Volume spike multiplier", unit: "×", default: 10 },
+];
 
 function GaugeCard({
   label,
@@ -71,11 +97,11 @@ function GaugeCard({
 interface OverviewTabProps {
   serverId: string;
   incidents: IncidentResponse[];
-  osType?: string;
+  server: ServerResponse;
 }
 
-export function OverviewTab({ serverId, incidents, osType }: OverviewTabProps) {
-  const isWindows = osType === "windows";
+export function OverviewTab({ serverId, incidents, server }: OverviewTabProps) {
+  const isWindows = server.os_type === "windows";
   const { data: metrics } = useServerMetrics(serverId, 30);
 
   const latestMetric = metrics?.[0];
@@ -96,8 +122,16 @@ export function OverviewTab({ serverId, incidents, osType }: OverviewTabProps) {
       disk: Number(m.disk_usage.toFixed(1)),
     }));
 
+  const dc = server.detection_config;
+  const bh = server.business_hours;
+
+  const warmupActive =
+    server.pattern_warmup_until &&
+    new Date(server.pattern_warmup_until) > new Date();
+
   return (
     <div className="space-y-6">
+      {/* Row 1: Gauges + Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
           <GaugeCard
@@ -221,6 +255,7 @@ export function OverviewTab({ serverId, incidents, osType }: OverviewTabProps) {
         </div>
       </div>
 
+      {/* Row 2: Security Events + Service Health */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-3">
@@ -301,6 +336,165 @@ export function OverviewTab({ serverId, incidents, osType }: OverviewTabProps) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Row 3: Business Hours + Anomaly State */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            BUSINESS HOURS
+          </h3>
+          {bh ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-0.5">
+                    Operating Hours
+                  </p>
+                  <p className="text-sm font-semibold font-mono">
+                    {bh.start} – {bh.end}{" "}
+                    <span className="text-muted-foreground font-sans font-normal text-xs">
+                      UTC
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-2">
+                  Active Days
+                </p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {DAY_NAMES.map((name, i) => {
+                    const day = i + 1;
+                    const active = bh.days.includes(day);
+                    return (
+                      <span
+                        key={name}
+                        className={cn(
+                          "px-2.5 py-1 text-[11px] font-bold rounded-md border transition-colors",
+                          active
+                            ? "bg-primary/15 text-primary border-primary/30"
+                            : "bg-muted/30 text-muted-foreground/40 border-border/40",
+                        )}
+                      >
+                        {name}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Off-hours activity outside this window increases anomaly scores
+                for time-of-day heuristics.
+              </p>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>Not configured</p>
+              <p className="text-xs">All hours treated equally — time-of-day anomaly heuristic is inactive.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+            <Activity className="h-4 w-4 text-muted-foreground" />
+            ANOMALY DETECTION STATE
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between py-1.5 border-b border-border/60">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">
+                Pattern Warm-up
+              </span>
+              {server.pattern_warmup_until ? (
+                <span
+                  className={cn(
+                    "text-xs font-semibold",
+                    warmupActive ? "text-yellow-400" : "text-green-400",
+                  )}
+                >
+                  {warmupActive
+                    ? `Active · ends ${timeAgo(server.pattern_warmup_until)}`
+                    : "Complete"}
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">Not set</span>
+              )}
+            </div>
+            <div className="flex items-center justify-between py-1.5 border-b border-border/60">
+              <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">
+                Log Rate Baseline
+              </span>
+              <span className="text-xs font-semibold font-mono">
+                {server.log_rate_baseline != null
+                  ? `${server.log_rate_baseline.toFixed(2)} logs/min`
+                  : "Not calibrated"}
+              </span>
+            </div>
+            {server.log_rate_updated_at && (
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">
+                  Baseline Updated
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {timeAgo(server.log_rate_updated_at)}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 4: Detection Config */}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+          <Settings2 className="h-4 w-4 text-muted-foreground" />
+          DETECTION CONFIGURATION
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {DETECTION_FIELDS.map((field) => {
+            const effective = dc?.[field.key] ?? field.default;
+            const isCustom = dc?.[field.key] != null && dc[field.key] !== field.default;
+            return (
+              <div
+                key={field.key}
+                className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-1"
+              >
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {field.label}
+                </p>
+                <div className="flex items-end gap-1.5">
+                  <span className="text-xl font-bold tabular-nums">
+                    {typeof effective === "number"
+                      ? Number.isInteger(effective)
+                        ? effective
+                        : effective.toFixed(2)
+                      : effective}
+                  </span>
+                  <span className="text-xs text-muted-foreground mb-0.5">
+                    {field.unit}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  {isCustom ? (
+                    <span className="text-primary font-semibold">
+                      Custom (default: {field.default} {field.unit})
+                    </span>
+                  ) : (
+                    <span>Default</span>
+                  )}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        {!dc && (
+          <p className="text-xs text-muted-foreground mt-3">
+            All values are global defaults. Edit this server to customize detection behaviour.
+          </p>
+        )}
       </div>
     </div>
   );

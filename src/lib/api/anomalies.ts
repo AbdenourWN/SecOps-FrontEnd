@@ -3,6 +3,7 @@ import type {
   AnomalyFilters,
   AnomalyListResponse,
   AnomalyStats,
+  LogObservation,
 } from "@/lib/types";
 
 export const anomaliesApi = {
@@ -18,6 +19,9 @@ export const anomaliesApi = {
     return apiClient.get<AnomalyListResponse>(`/api/anomalies${qs ? `?${qs}` : ""}`);
   },
 
+  getById: (id: string) =>
+    apiClient.get<LogObservation>(`/api/anomalies/${id}`),
+
   getStats: () => apiClient.get<AnomalyStats>("/api/anomalies/stats"),
 
   dismiss: (id: string) =>
@@ -29,5 +33,10 @@ export const anomaliesApi = {
   promote: (id: string) =>
     apiClient.post<{ status: string; observation_id: string; incident_id: string }>(
       `/api/anomalies/${id}/promote`
+    ),
+
+  triggerAiAnalysis: (id: string) =>
+    apiClient.post<{ status: string; observation_id: string; ai_analysis: string }>(
+      `/api/anomalies/${id}/analyze`
     ),
 };

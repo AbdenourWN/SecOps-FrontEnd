@@ -9,6 +9,10 @@ import {
   useNotificationConfigs,
   useTestNotification,
 } from "@/lib/hooks/use-notifications";
+import {
+  useSystemSettings,
+  useUpdateSystemSettings,
+} from "@/lib/hooks/use-system-settings";
 import { toast } from "sonner";
 import {
   Settings,
@@ -23,6 +27,7 @@ import {
   Moon,
   Monitor,
   Check,
+  Cpu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { SeverityLevel } from "@/lib/types";
@@ -33,13 +38,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 
-type Tab = "profile" | "appearance" | "notifications" | "api";
+type Tab = "profile" | "appearance" | "notifications" | "system" | "api";
 
 const tabs: { id: Tab; label: string; icon: typeof Settings }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "system", label: "System", icon: Cpu },
   { id: "api", label: "API & Integrations", icon: Globe },
 ];
 
@@ -55,7 +62,7 @@ export default function SettingsPage() {
             <Settings className="h-3.5 w-3.5" />
             CONFIGURATION
           </div>
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
             Settings
           </h1>
           <p className="text-muted-foreground mt-2 max-w-xl leading-relaxed">
@@ -90,6 +97,7 @@ export default function SettingsPage() {
             {activeTab === "profile" && <ProfileSection />}
             {activeTab === "appearance" && <AppearanceSection />}
             {activeTab === "notifications" && <NotificationsSection />}
+            {activeTab === "system" && <SystemSection />}
             {activeTab === "api" && <ApiSection />}
           </div>
         </div>
@@ -427,6 +435,122 @@ function NotificationsSection() {
   );
 }
 
+/* ─── System ───────────────────────────────────────────────── */
+
+function SystemSection() {
+  const { data, isLoading } = useSystemSettings();
+  const updateSettings = useUpdateSystemSettings();
+
+  const current = data?.max_concurrent_servers ?? 20;
+  const envDefault = data?.env_default ?? 20;
+  const [value, setValue] = useState<number | null>(null);
+  const displayed = value ?? current;
+
+  const isDirty = value !== null && value !== current;
+
+  const handleSave = async () => {
+    if (value === null) return;
+    try {
+      await updateSettings.mutateAsync({ max_concurrent_servers: value });
+      setValue(null);
+      toast.success(`Concurrent server limit updated to ${value}`);
+    } catch {
+      toast.error("Failed to update system settings");
+    }
+  };
+
+  const handleReset = async () => {
+    try {
+      await updateSettings.mutateAsync({ max_concurrent_servers: envDefault });
+      setValue(null);
+      toast.success(`Reset to environment default (${envDefault})`);
+    } catch {
+      toast.error("Failed to reset system settings");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <SectionCard
+        title="Scheduler"
+        description="Control how many servers the background jobs process in parallel per tick."
+      >
+        {isLoading ? (
+          <div className="space-y-4">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-12 rounded-xl bg-muted/60 animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <FieldGroup label="Max Concurrent Servers">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    1 — sequential
+                  </span>
+                  <span className="text-2xl font-black tabular-nums text-primary">
+                    {displayed}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    200 — max
+                  </span>
+                </div>
+                <Slider
+                  value={displayed}
+                  onValueChange={(v) => setValue(v)}
+                  min={1}
+                  max={200}
+                  step={1}
+                />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Caps how many server collection tasks (telemetry + file watcher)
+                  run simultaneously in one scheduler tick. Higher values reduce
+                  collection latency on large fleets but increase CPU and SSH/WinRM
+                  connection pressure. Set to <strong>1</strong> for strictly
+                  sequential collection.
+                </p>
+                {current !== envDefault && (
+                  <p className="text-[11px] text-amber-500">
+                    Active override: <strong>{current}</strong>. Environment default: {envDefault}.{" "}
+                    <button
+                      onClick={handleReset}
+                      className="underline hover:text-amber-400 transition-colors"
+                    >
+                      Reset to default
+                    </button>
+                  </p>
+                )}
+                {current === envDefault && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Using environment default ({envDefault}). No DB override active.
+                  </p>
+                )}
+              </div>
+            </FieldGroup>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={handleSave}
+                disabled={!isDirty || updateSettings.isPending}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-sm font-semibold shadow-lg shadow-primary/20 disabled:opacity-40"
+              >
+                <Save className="h-4 w-4" />
+                {updateSettings.isPending ? "Saving..." : "Apply"}
+              </button>
+              {isDirty && (
+                <span className="text-xs text-muted-foreground">
+                  Unsaved — current active: {current}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </SectionCard>
+    </div>
+  );
+}
+
 /* ─── API & Integrations ───────────────────────────────────── */
 
 function ApiSection() {
@@ -469,6 +593,7 @@ function ApiSection() {
                 "Notifications",
                 "Dashboard",
                 "Analysis",
+                "Anomalies"
               ].map((ep) => (
                 <div
                   key={ep}
@@ -483,24 +608,6 @@ function ApiSection() {
         </div>
       </SectionCard>
 
-      <SectionCard
-        title="Authentication"
-        description="JWT-based access control for the platform."
-      >
-        <div className="flex items-start gap-4 p-4 rounded-xl bg-muted/30 border border-border">
-          <div className="h-10 w-10 rounded-xl bg-warning/10 text-warning flex items-center justify-center shrink-0">
-            <Globe className="h-5 w-5" />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold">Coming in Phase 4</h4>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              JWT authentication, role-based access control, and session
-              management are planned for the next release phase. The platform
-              currently operates with a mock admin identity.
-            </p>
-          </div>
-        </div>
-      </SectionCard>
     </div>
   );
 }
@@ -517,7 +624,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-6 lg:p-8">
+    <div className="rounded-2xl border border-border bg-card/40 p-6 lg:p-8">
       <h2 className="text-xl font-bold tracking-tight">{title}</h2>
       <p className="text-sm text-muted-foreground mt-1 mb-6">{description}</p>
       {children}

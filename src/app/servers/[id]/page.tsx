@@ -1,23 +1,26 @@
 "use client";
 
 import { AppShell } from "@/components/layout/app-shell";
-import { useServer, useDeleteServer } from "@/lib/hooks/use-servers";
+import { useServer, useDeleteServer, useRecalculateStats } from "@/lib/hooks/use-servers";
 import { useIncidents } from "@/lib/hooks/use-incidents";
+import { useServerAnomaliesFiltered } from "@/lib/hooks/use-anomalies";
+
 import { LogSourcesTab } from "@/components/servers/log-sources-tab";
 import { OverviewTab } from "@/components/servers/tabs/overview-tab";
 import { LogsTab } from "@/components/servers/tabs/logs-tab";
 import { IncidentsTab } from "@/components/servers/tabs/incidents-tab";
 import { TerminalTab } from "@/components/servers/tabs/terminal-tab";
+import { MetricsTab } from "@/components/servers/tabs/metrics-tab";
+import { AnomaliesTab } from "@/components/servers/tabs/anomalies-tab";
 import { useRouter } from "next/navigation";
 import { ServerStatusBadge } from "@/components/shared/badges";
 import { timeAgo, cn } from "@/lib/utils";
-import { Trash2, ArrowLeft, Pencil } from "lucide-react";
+import { Trash2, ArrowLeft, Pencil, RefreshCw } from "lucide-react";
 import { useState, use } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
-import { EditServerDialog } from "@/components/servers/server-edit-dialog";
 
-type TabKey = "overview" | "logs" | "sources" | "incidents" | "actions";
+type TabKey = "overview" | "metrics" | "logs" | "sources" | "incidents" | "anomalies" | "actions";
 
 export default function ServerDetailPage({
   params,
@@ -32,12 +35,18 @@ export default function ServerDetailPage({
     page_size: 10,
   });
   const incidents = incidentsData?.results ?? [];
+
+  const { data: pendingAnomalies } = useServerAnomaliesFiltered(id, {
+    status: "pending_review",
+    page_size: 1,
+  });
+
   const deleteServer = useDeleteServer();
+  const recalculate = useRecalculateStats();
 
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
-  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const handleDelete = async () => {
     if (!deletePassword) return;
@@ -72,20 +81,26 @@ export default function ServerDetailPage({
     );
   }
 
-  const openIncidentCount = incidents.filter(
-    (i) => i.status === "open" || i.status === "investigating",
-  ).length;
+  const openIncidentCount = server?.open_incidents_count ?? 0;
+  const pendingAnomalyCount = pendingAnomalies?.total ?? 0;
 
-  const tabs: Array<{ key: TabKey; label: string; badge?: string | number }> = [
-    { key: "overview", label: "Overview" },
-    { key: "logs", label: "Logs" },
-    { key: "sources", label: "Log Sources" },
-    {
-      key: "incidents",
-      label: "Incidents",
-      badge: openIncidentCount >= 10 ? "10+" : openIncidentCount || undefined,
-    },
-    { key: "actions", label: "Actions" },
+  const handleRecalculate = async () => {
+    try {
+      const result = await recalculate.mutateAsync(id);
+      toast.success(`Stats recalculated — ${result.open_incidents_count} active incident(s)`);
+    } catch {
+      toast.error("Failed to recalculate stats");
+    }
+  };
+
+  const tabs: Array<{ key: TabKey; label: string; badge?: number }> = [
+    { key: "overview",  label: "Overview" },
+    { key: "metrics",   label: "Metrics" },
+    { key: "logs",      label: "Logs" },
+    { key: "sources",   label: "Log Sources" },
+    { key: "incidents", label: "Incidents", badge: openIncidentCount },
+    { key: "anomalies", label: "Anomalies", badge: pendingAnomalyCount },
+    { key: "actions",   label: "Actions" },
   ];
 
   return (
@@ -117,12 +132,21 @@ export default function ServerDetailPage({
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowEditDialog(true)}
+              onClick={handleRecalculate}
+              disabled={recalculate.isPending}
+              title="Recount active incidents from the database and fix any counter drift"
+              className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${recalculate.isPending ? "animate-spin" : ""}`} />
+              Recalculate
+            </button>
+            <Link
+              href={`/servers/${id}/edit`}
               className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
               <Pencil className="h-3.5 w-3.5" />
               Edit
-            </button>
+            </Link>
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
@@ -133,29 +157,28 @@ export default function ServerDetailPage({
           </div>
         </div>
 
-        <EditServerDialog
-          server={server}
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-        />
-
         {/* Tabs */}
         <div className="border-b border-border">
-          <nav className="flex gap-1">
+          <nav className="flex gap-1 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
+                  "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5",
                   activeTab === tab.key
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
               >
                 {tab.label}
-                {tab.badge !== undefined && (
-                  <span className="ml-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-500/20 text-[10px] font-bold text-red-400">
+                {tab.badge !== undefined && tab.badge > 0 && (
+                  <span className={cn(
+                    "inline-flex h-5 min-w-5 px-1 items-center justify-center rounded-full text-[10px] font-bold",
+                    tab.key === "anomalies"
+                      ? "bg-cyan-500/20 text-cyan-400"
+                      : "bg-red-500/20 text-red-400",
+                  )}>
                     {tab.badge}
                   </span>
                 )}
@@ -165,8 +188,9 @@ export default function ServerDetailPage({
         </div>
 
         {activeTab === "overview" && (
-          <OverviewTab serverId={id} incidents={incidents} osType={server.os_type} />
+          <OverviewTab serverId={id} incidents={incidents} server={server} />
         )}
+        {activeTab === "metrics" && <MetricsTab serverId={id} />}
         {activeTab === "logs" && (
           <LogsTab serverId={id} hostname={server.hostname} />
         )}
@@ -174,6 +198,7 @@ export default function ServerDetailPage({
           <LogSourcesTab serverId={id} osType={server.os_type} />
         )}
         {activeTab === "incidents" && <IncidentsTab serverId={id} />}
+        {activeTab === "anomalies" && <AnomaliesTab serverId={id} />}
         {activeTab === "actions" && <TerminalTab server={server} />}
 
         {/* Delete Confirm Modal */}

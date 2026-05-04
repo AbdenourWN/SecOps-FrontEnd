@@ -1,12 +1,11 @@
 "use client";
 
 import { useServers } from "@/lib/hooks/use-servers";
-import { useServerMetrics } from "@/lib/hooks/use-metrics";
-import { useIncidents } from "@/lib/hooks/use-incidents";
 import { cn, timeAgo } from "@/lib/utils";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Activity, Monitor } from "lucide-react";
+import type { ServerResponse } from "@/lib/types";
 
 type Filter = "all" | "failures";
 
@@ -39,21 +38,14 @@ function MetricBlock({
   );
 }
 
-function ServerCard({
-  server,
-  incidentCount,
-}: {
-  server: NonNullable<ReturnType<typeof useServers>["data"]>["results"][number];
-  incidentCount: number;
-}) {
-  const { data: metricsArray } = useServerMetrics(server._id, 1);
+function ServerCard({ server }: { server: ServerResponse }) {
   const isOffline = server.status === "offline";
+  const incidentCount = server.open_incidents_count ?? 0;
   const hasIncident = incidentCount > 0;
 
-  const latest = metricsArray?.[0];
-  const cpu = latest?.cpu_usage ?? 0;
-  const ram = latest?.ram_usage ?? 0;
-  const disk = latest?.disk_usage ?? 0;
+  const cpu = server.last_metrics?.cpu_usage ?? 0;
+  const ram = server.last_metrics?.ram_usage ?? 0;
+  const disk = server.last_metrics?.disk_usage ?? 0;
 
   return (
     <Link
@@ -107,28 +99,22 @@ function ServerCard({
         <MetricBlock
           label="CPU LOAD"
           value={cpu}
-          color={
-            cpu > 85 ? "bg-danger" : cpu > 65 ? "bg-warning" : "bg-primary"
-          }
+          color={cpu > 85 ? "bg-danger" : cpu > 65 ? "bg-warning" : "bg-primary"}
         />
         <MetricBlock
           label="RAM"
           value={ram}
-          color={
-            ram > 85 ? "bg-danger" : ram > 65 ? "bg-warning" : "bg-success"
-          }
+          color={ram > 85 ? "bg-danger" : ram > 65 ? "bg-warning" : "bg-success"}
         />
         <MetricBlock
           label="DISK"
           value={disk}
-          color={
-            disk > 85 ? "bg-danger" : disk > 65 ? "bg-warning" : "bg-success"
-          }
+          color={disk > 85 ? "bg-danger" : disk > 65 ? "bg-warning" : "bg-success"}
         />
       </div>
       <div className="flex items-center gap-1.5 text-muted-foreground my-2">
         <Activity className="h-4 w-4" />
-        <span className="text-[10px] font-mono ">
+        <span className="text-[10px] font-mono">
           last health checked: {timeAgo(server.last_health_check)}
         </span>
       </div>
@@ -150,21 +136,12 @@ function ServerCard({
 export function ServerHealthGrid() {
   const { data: serversData, isLoading } = useServers({ page_size: 100 });
   const servers = serversData?.results ?? [];
-  const { data: openIncidents } = useIncidents({ status: "open", page_size: 200 });
   const [filter, setFilter] = useState<Filter>("all");
-
-  const incidentCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const inc of openIncidents?.results ?? []) {
-      counts[inc.server_id] = (counts[inc.server_id] ?? 0) + 1;
-    }
-    return counts;
-  }, [openIncidents]);
 
   const displayed = servers.filter((s) =>
     filter === "all"
       ? true
-      : s.status === "offline" || (incidentCounts[s._id] ?? 0) > 0,
+      : s.status === "offline" || (s.open_incidents_count ?? 0) > 0,
   );
 
   return (
@@ -173,8 +150,8 @@ export function ServerHealthGrid() {
         <div>
           <h2 className="text-sm font-bold">Server Health Overview</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {(servers ?? []).filter((s) => s.status === "online").length} /{" "}
-            {(servers ?? []).length} nodes online
+            {servers.filter((s) => s.status === "online").length} /{" "}
+            {servers.length} nodes online
           </p>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 text-xs">
@@ -211,11 +188,7 @@ export function ServerHealthGrid() {
       ) : (
         <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
           {displayed.map((server) => (
-            <ServerCard
-              key={server._id}
-              server={server}
-              incidentCount={incidentCounts[server._id] ?? 0}
-            />
+            <ServerCard key={server._id} server={server} />
           ))}
         </div>
       )}

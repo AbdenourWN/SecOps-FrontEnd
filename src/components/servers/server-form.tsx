@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateServer } from "@/lib/hooks/use-servers";
-import { ChevronDown, ChevronUp, Plus, Telescope } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Settings2, Telescope } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { WarmupDurationPicker } from "@/components/servers/warmup-duration-picker";
@@ -48,12 +48,38 @@ type FormData = z.infer<typeof schema>;
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]; // ISO 1..7
 
+const DETECTION_FIELDS: { key: string; label: string; min: number; max: number; step: number; description: string }[] = [
+  { key: "verification_window_minutes", label: "Verification window (min)", min: 1, max: 120, step: 1,
+    description: "How long to watch for recurrence after a script runs. Raise for critical servers; lower for noisy ones." },
+  { key: "max_remediation_attempts", label: "Max remediation attempts", min: 1, max: 10, step: 1,
+    description: "Retries before escalating to a human. Lower = faster escalation." },
+  { key: "incident_lookback_minutes", label: "Dedup lookback (min)", min: 5, max: 1440, step: 5,
+    description: "How far back to look for an existing incident when deduplicating triggers." },
+  { key: "recurrence_streak_threshold", label: "Recurrence streak threshold", min: 2, max: 20, step: 1,
+    description: "Consecutive 'fix → problem recurs' cycles before pausing automation and alerting." },
+  { key: "recurrence_lookback_hours", label: "Recurrence lookback (hours)", min: 0.25, max: 24, step: 0.25,
+    description: "How recent a previous resolution must be to count as part of the recurrence chain." },
+  { key: "volume_spike_multiplier", label: "Volume spike multiplier", min: 2, max: 100, step: 0.5,
+    description: "Log rate must exceed this multiple of the baseline EMA to trigger a volume anomaly." },
+];
+
+const DETECTION_DEFAULTS: Record<string, number> = {
+  verification_window_minutes: 10,
+  max_remediation_attempts: 3,
+  incident_lookback_minutes: 30,
+  recurrence_streak_threshold: 3,
+  recurrence_lookback_hours: 2,
+  volume_spike_multiplier: 10,
+};
+
 export function ServerForm() {
   const [open, setOpen] = useState(false);
   // Default-open so the user actually sees the anomaly settings on create.
   const [anomalyOpen, setAnomalyOpen] = useState(true);
+  const [detectionOpen, setDetectionOpen] = useState(false);
   const [bhDays, setBhDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [warmupMinutes, setWarmupMinutes] = useState(60);   // default 1h
+  const [detectionConfig, setDetectionConfig] = useState<Record<string, number>>({ ...DETECTION_DEFAULTS });
   const createServer = useCreateServer();
 
   const {
@@ -91,12 +117,15 @@ export function ServerForm() {
           tz: data.bh_tz,
         },
         warmup_minutes: warmupMinutes,
+        detection_config: detectionConfig,
       });
       toast.success("Server added successfully");
       reset();
       setBhDays([1, 2, 3, 4, 5]);
       setWarmupMinutes(60);
+      setDetectionConfig({ ...DETECTION_DEFAULTS });
       setAnomalyOpen(true);
+      setDetectionOpen(false);
       setOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add server");
@@ -270,6 +299,43 @@ export function ServerForm() {
                     log. Default: 1 hour.
                   </p>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Advanced Detection Tuning */}
+          <div className="border border-muted rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setDetectionOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors text-sm font-semibold"
+            >
+              <span className="flex items-center gap-2">
+                <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+                Advanced Detection Tuning
+              </span>
+              {detectionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+            {detectionOpen && (
+              <div className="p-3 space-y-3 bg-card">
+                {DETECTION_FIELDS.map((f) => (
+                  <div key={f.key} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium">{f.label}</label>
+                      <span className="text-xs text-muted-foreground font-mono">{detectionConfig[f.key]}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={f.min}
+                      max={f.max}
+                      step={f.step}
+                      value={detectionConfig[f.key]}
+                      onChange={(e) => setDetectionConfig((prev) => ({ ...prev, [f.key]: Number(e.target.value) }))}
+                      className="w-full accent-primary"
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">{f.description}</p>
+                  </div>
+                ))}
               </div>
             )}
           </div>

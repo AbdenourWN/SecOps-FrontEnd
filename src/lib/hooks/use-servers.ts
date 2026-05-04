@@ -80,6 +80,17 @@ export function useResetBaseline() {
   });
 }
 
+export function useRecalculateStats() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => serversApi.recalculateStats(id),
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ["servers", id] });
+      qc.invalidateQueries({ queryKey: ["servers"] });
+    },
+  });
+}
+
 export function useExecuteCommand() {
   return useMutation({
     mutationFn: ({

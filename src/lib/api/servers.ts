@@ -67,6 +67,9 @@ export const serversApi = {
   resetBaseline: (id: string) =>
     apiClient.post<{ status: string; message: string }>(`/api/servers/${id}/reset-baseline`),
 
+  recalculateStats: (id: string) =>
+    apiClient.post<{ status: string; open_incidents_count: number }>(`/api/servers/${id}/recalculate-stats`),
+
   // execute does NOT require a password — the stored credential is used
   execute: async (
     id: string,

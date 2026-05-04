@@ -48,6 +48,15 @@ export interface BusinessHours {
   tz: string;           // IANA tz; "UTC" recommended
 }
 
+export interface DetectionConfig {
+  verification_window_minutes?: number;   // 1–120, default 10
+  max_remediation_attempts?: number;      // 1–10, default 3
+  incident_lookback_minutes?: number;     // 5–1440, default 30
+  recurrence_streak_threshold?: number;   // 2–20, default 3
+  recurrence_lookback_hours?: number;     // 0.25–24, default 2
+  volume_spike_multiplier?: number;       // 2–100, default 10
+}
+
 export interface ServerCreate {
   hostname: string;
   ip_address: string;
@@ -55,6 +64,7 @@ export interface ServerCreate {
   port?: number;
   credential: CredentialCreate;
   business_hours?: BusinessHours;
+  detection_config?: DetectionConfig;
   /** 0 = skip warm-up; up to 525_600 = 1 year. Default 60 (1h). */
   warmup_minutes?: number;
 }
@@ -70,12 +80,20 @@ export interface ServerUpdate {
   os_type?: "linux" | "windows";
   port?: number;
   business_hours?: BusinessHours;
+  detection_config?: DetectionConfig;
   credential?: Partial<CredentialCreate>;
   current_secret: string;     // REQUIRED — security challenge
 }
 
 export interface ServerDelete {
   current_secret: string;
+}
+
+export interface LastMetrics {
+  cpu_usage: number;
+  ram_usage: number;
+  disk_usage: number;
+  collected_at: string | null;
 }
 
 export interface ServerResponse {
@@ -88,8 +106,13 @@ export interface ServerResponse {
   credential_id: string;
   last_health_check: string | null;
   created_at: string;
+  // Denormalised counters (maintained by incident write paths)
+  open_incidents_count: number;
+  // Cached last metric snapshot (updated every 60s by telemetry tick)
+  last_metrics: LastMetrics | null;
   // Tier 2 anomaly state (read-only)
   business_hours?: BusinessHours | null;
+  detection_config?: DetectionConfig | null;
   pattern_warmup_until?: string | null;
   log_rate_baseline?: number | null;
   log_rate_updated_at?: string | null;
@@ -135,8 +158,8 @@ export interface IncidentResponse {
   description: string;
   context: Record<string, string>;
   ai_analysis: string | null;
-  automation_skipped_reason?: "script_disabled" | "script_missing" | null;
-  automation_failure_reason?: "remediation_exhausted" | "permission_denied" | null;
+  automation_skipped_reason?: "script_disabled" | "script_missing" | "recurrence_detected" | null;
+  automation_failure_reason?: "remediation_exhausted" | "permission_denied" | "execution_failed" | "unsafe_placeholder" | null;
   remediation_attempts?: number;
   last_remediation_at?: string | null;
   verification_until?: string | null;
@@ -185,6 +208,8 @@ export interface LogObservation {
   severity: AnomalySeverity;
   status: LogObservationStatus;
   promoted_incident_id?: string | null;
+  ai_analysis?: string | null;
+  ai_analyzed_at?: string | null;
   detected_at: string;
   reviewed_at?: string | null;
 }

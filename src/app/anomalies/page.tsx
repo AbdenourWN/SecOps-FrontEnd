@@ -413,8 +413,17 @@ export default function AnomaliesPage() {
                         </div>
                       )}
 
-                      {obs.status === "pending_review" && (
-                        <div className="flex items-center gap-2 pt-1">
+                      <div className="flex items-center gap-2 pt-1">
+                        <Link
+                          href={`/anomalies/${obs._id}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold hover:bg-muted transition-colors"
+                        >
+                          <ArrowRight className="h-3.5 w-3.5" />
+                          Open Details
+                        </Link>
+
+                        {obs.status === "pending_review" && (
+                          <>
                           <button
                             onClick={() => onDismiss(obs)}
                             disabled={dismissMutation.isPending}
@@ -431,8 +440,9 @@ export default function AnomaliesPage() {
                             <ArrowRight className="h-3.5 w-3.5" />
                             Promote to Incident
                           </button>
-                        </div>
-                      )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

@@ -1,13 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import {
   useServers,
   useDeleteServer,
   useCreateServer,
 } from "@/lib/hooks/use-servers";
-import { useIncidents } from "@/lib/hooks/use-incidents";
 import {
   Server,
   Shield,
@@ -67,8 +66,6 @@ export default function ServersPage() {
   const { data: allData }     = useServers({ page: 1, page_size: 1 });
   const { data: onlineData }  = useServers({ status: "online",  page: 1, page_size: 1 });
   const { data: offlineData } = useServers({ status: "offline", page: 1, page_size: 1 });
-  const { data: openIncidentsData } = useIncidents({ status: "open" });
-  const openIncidents = openIncidentsData?.results ?? [];
   const deleteServer = useDeleteServer();
   const createServer = useCreateServer();
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -138,15 +135,9 @@ export default function ServersPage() {
     }
   };
 
-  const incidentCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const inc of openIncidents ?? []) {
-      counts[inc.server_id] = (counts[inc.server_id] ?? 0) + 1;
-    }
-    return counts;
-  }, [openIncidents]);
-
-  const totalOpenIncidents = (openIncidents ?? []).length;
+  const totalOpenIncidents = servers.reduce(
+    (sum, s) => sum + (s.open_incidents_count ?? 0), 0
+  );
 
   const hasFilters = !!statusFilter || !!osFilter || !!search.trim();
 
@@ -271,7 +262,7 @@ export default function ServersPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {servers.map((server) => {
               const isOffline = server.status === "offline";
-              const incidentCount = incidentCounts[server._id] ?? 0;
+              const incidentCount = server.open_incidents_count ?? 0;
               const hasIncidents = incidentCount > 0;
 
               return (
@@ -360,7 +351,7 @@ export default function ServersPage() {
                               : "text-muted-foreground",
                           )}
                         >
-                          {incidentCount > 10 ? "10+" : incidentCount}
+                          {incidentCount}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 text-muted-foreground">
