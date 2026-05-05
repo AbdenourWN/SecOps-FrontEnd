@@ -39,7 +39,7 @@ function MetricBlock({
 }
 
 function ServerCard({ server }: { server: ServerResponse }) {
-  const isOffline = server.status === "offline";
+  const isOffline = server.status === "offline" || server.status === "reachable";
   const incidentCount = server.open_incidents_count ?? 0;
   const hasIncident = incidentCount > 0;
 
@@ -141,7 +141,7 @@ export function ServerHealthGrid() {
   const displayed = servers.filter((s) =>
     filter === "all"
       ? true
-      : s.status === "offline" || (s.open_incidents_count ?? 0) > 0,
+      : (s.status === "offline" || s.status === "reachable") || (s.open_incidents_count ?? 0) > 0,
   );
 
   return (

@@ -5,7 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { useLogSearch } from "@/lib/hooks/use-logs";
 import { useServers } from "@/lib/hooks/use-servers";
 import { Search, Terminal, List, CalendarDays } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, localDateToUtcIso } from "@/lib/utils";
 import type { LogLevel } from "@/lib/types";
 import {
   Select,
@@ -68,8 +68,8 @@ export default function LogsPage() {
       q: query || undefined,
       server_id: serverId && serverId !== "all" ? serverId : undefined,
       level: level && level !== "all" ? (level as LogLevel) : undefined,
-      from_date: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
-      to_date: toDate ? `${toDate}T23:59:59.999Z` : undefined,
+      from_date: fromDate ? localDateToUtcIso(fromDate) : undefined,
+      to_date: toDate ? localDateToUtcIso(toDate, true) : undefined,
     });
     setPage(1);
     setHasSearched(true);

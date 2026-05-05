@@ -109,23 +109,17 @@ export function StatusBadge({ status }: { status: IncidentStatus }) {
 
 // Server status
 export function ServerStatusBadge({ status }: { status: ServerStatus | string }) {
-  const isOnline = status === "online";
+  const cfg = {
+    online:    { dot: "bg-green-400 animate-pulse",  text: "text-green-400",  bg: "bg-green-500/10",  label: "ONLINE"     },
+    reachable: { dot: "bg-yellow-400 animate-pulse", text: "text-yellow-400", bg: "bg-yellow-500/10", label: "REACHABLE"  },
+    offline:   { dot: "bg-red-500",                  text: "text-red-400",    bg: "bg-red-500/10",    label: "OFFLINE"    },
+    unknown:   { dot: "bg-zinc-500",                 text: "text-zinc-400",   bg: "bg-zinc-500/10",   label: "UNKNOWN"    },
+  }[status] ?? { dot: "bg-zinc-500", text: "text-zinc-400", bg: "bg-zinc-500/10", label: String(status).toUpperCase() };
+
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold",
-        isOnline
-          ? "text-green-400 bg-green-500/10"
-          : "text-slate-400 bg-slate-500/10"
-      )}
-    >
-      <span
-        className={cn(
-          "h-2 w-2 rounded-full",
-          isOnline ? "bg-green-400 animate-pulse" : "bg-slate-500"
-        )}
-      />
-      {isOnline ? "ONLINE" : "OFFLINE"}
+    <span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold", cfg.text, cfg.bg)}>
+      <span className={cn("h-2 w-2 rounded-full", cfg.dot)} />
+      {cfg.label}
     </span>
   );
 }

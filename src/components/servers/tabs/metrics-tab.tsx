@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import { Cpu, HardDrive, MemoryStick, TrendingUp, BarChart3 } from "lucide-react";
 import { useServerMetricsHistory } from "@/lib/hooks/use-metrics";
-import { cn } from "@/lib/utils";
+import { cn, localDateToUtcIso } from "@/lib/utils";
 
 const QUICK_RANGES = [
   { key: "1h",  label: "1H",  ms: 3_600_000 },
@@ -43,8 +43,8 @@ export function MetricsTab({ serverId }: MetricsTabProps) {
   const { fromIso, toIso } = useMemo(() => {
     if (quickRange === "custom") {
       return {
-        fromIso: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
-        toIso: toDate ? `${toDate}T23:59:59.999Z` : undefined,
+        fromIso: fromDate ? localDateToUtcIso(fromDate) : undefined,
+        toIso: toDate ? localDateToUtcIso(toDate, true) : undefined,
       };
     }
     const rng = QUICK_RANGES.find((r) => r.key === quickRange)!;

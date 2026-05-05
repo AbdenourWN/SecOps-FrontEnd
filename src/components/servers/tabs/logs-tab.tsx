@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useLogSearch } from "@/lib/hooks/use-logs";
-import { cn } from "@/lib/utils";
+import { cn, localDateToUtcIso } from "@/lib/utils";
 import type { LogLevel } from "@/lib/types";
 
 const PAGE_SIZE = 25;
@@ -73,8 +73,8 @@ export function LogsTab({ serverId, hostname }: LogsTabProps) {
     setCommittedFilters({
       q: query || undefined,
       level: level && level !== "all" ? (level as LogLevel) : undefined,
-      from_date: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
-      to_date: toDate ? `${toDate}T23:59:59.999Z` : undefined,
+      from_date: fromDate ? localDateToUtcIso(fromDate) : undefined,
+      to_date: toDate ? localDateToUtcIso(toDate, true) : undefined,
     });
     setPage(1);
   };

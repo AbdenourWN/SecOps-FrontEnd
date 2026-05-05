@@ -63,9 +63,10 @@ export default function ServersPage() {
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1;
 
   // Unfiltered stats — one cheap request per status
-  const { data: allData }     = useServers({ page: 1, page_size: 1 });
-  const { data: onlineData }  = useServers({ status: "online",  page: 1, page_size: 1 });
-  const { data: offlineData } = useServers({ status: "offline", page: 1, page_size: 1 });
+  const { data: allData }       = useServers({ page: 1, page_size: 1 });
+  const { data: onlineData }    = useServers({ status: "online",    page: 1, page_size: 1 });
+  const { data: reachableData } = useServers({ status: "reachable", page: 1, page_size: 1 });
+  const { data: offlineData }   = useServers({ status: "offline",   page: 1, page_size: 1 });
   const deleteServer = useDeleteServer();
   const createServer = useCreateServer();
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -189,9 +190,16 @@ export default function ServersPage() {
             </span>
             <p className="text-4xl font-black">{onlineData?.total ?? 0}</p>
           </div>
+          <div className="rounded-2xl border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative border-yellow-500/30">
+            <div className="absolute -right-6 -top-6 h-24 w-24 bg-yellow-500/10 rounded-full blur-2xl" />
+            <span className="text-sm font-medium text-yellow-400 mb-4 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" /> Reachable
+            </span>
+            <p className="text-4xl font-black">{reachableData?.total ?? 0}</p>
+          </div>
           <div className="rounded-2xl border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative border-danger/30">
             <div className="absolute -right-6 -top-6 h-24 w-24 bg-danger/10 rounded-full blur-2xl" />
-            <p className="text-sm font-medium text-danger mb-4">Offline / Error</p>
+            <p className="text-sm font-medium text-danger mb-4">Offline</p>
             <p className="text-4xl font-black">{offlineData?.total ?? 0}</p>
           </div>
           <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative">
@@ -217,6 +225,7 @@ export default function ServersPage() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="online">Online</SelectItem>
+              <SelectItem value="reachable">Reachable (auth broken)</SelectItem>
               <SelectItem value="offline">Offline</SelectItem>
               <SelectItem value="unknown">Unknown</SelectItem>
             </SelectContent>
@@ -261,7 +270,7 @@ export default function ServersPage() {
           <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {servers.map((server) => {
-              const isOffline = server.status === "offline";
+              const isOffline = server.status === "offline" || server.status === "reachable";
               const incidentCount = server.open_incidents_count ?? 0;
               const hasIncidents = incidentCount > 0;
 

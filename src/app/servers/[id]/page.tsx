@@ -129,6 +129,16 @@ export default function ServerDetailPage({
               <span className="capitalize">{server.os_type}</span>
               <span>Last check: {timeAgo(server.last_health_check)}</span>
             </div>
+            {server.status === "reachable" && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
+                <span className="font-semibold shrink-0">⚠ Credentials failing</span>
+                <span className="text-yellow-400/80">
+                  {server.auth_failure_reason
+                    ? `— ${server.auth_failure_reason}`
+                    : "— server is reachable but authentication is broken. Update credentials in Settings."}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button

@@ -18,7 +18,7 @@ export type LogLevel = "info" | "warning" | "error" | "critical" | "unknown";
 export type CredentialType = "password" | "ssh_key";
 
 export interface ServerFilters {
-  status?: "online" | "offline" | "unknown";
+  status?: "online" | "reachable" | "offline" | "unknown";
   os_type?: "linux" | "windows";
   search?: string;
   page?: number;
@@ -39,7 +39,7 @@ export interface CredentialCreate {
   passphrase?: string;
 }
 
-export type ServerStatus = "online" | "offline" | "unknown";
+export type ServerStatus = "online" | "reachable" | "offline" | "unknown";
 
 export interface BusinessHours {
   start: string;        // "HH:MM"
@@ -105,6 +105,7 @@ export interface ServerResponse {
   status: ServerStatus;
   credential_id: string;
   last_health_check: string | null;
+  auth_failure_reason: string | null;
   created_at: string;
   // Denormalised counters (maintained by incident write paths)
   open_incidents_count: number;

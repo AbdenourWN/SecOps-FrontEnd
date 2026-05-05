@@ -9,6 +9,19 @@ export function cn(...inputs: ClassValue[]) {
 
 // ── Date helpers ──
 
+/**
+ * Convert a date picker value ("YYYY-MM-DD") to a UTC ISO string,
+ * treating the date as midnight (or end-of-day) in the *user's local timezone*.
+ *
+ * JS parses "YYYY-MM-DDTHH:MM:SS.mmm" (no Z, no offset) as local time,
+ * then toISOString() converts to UTC — so a UTC+1 user picking "2026-05-04"
+ * gets "2026-05-03T23:00:00.000Z" (correct) instead of "2026-05-04T00:00:00.000Z" (wrong).
+ */
+export function localDateToUtcIso(dateStr: string, endOfDay = false): string {
+  const time = endOfDay ? "23:59:59.999" : "00:00:00.000";
+  return new Date(`${dateStr}T${time}`).toISOString();
+}
+
 export function timeAgo(date: string | null | undefined): string {
   if (!date) return "Never";
   try {
@@ -26,7 +39,11 @@ export function timeAgo(date: string | null | undefined): string {
 
 export function formatDate(date: string): string {
   try {
-    return format(new Date(date), "MMM d, yyyy HH:mm:ss");
+    let normalized = date.replace(" ", "T");
+    if (!normalized.endsWith("Z") && !normalized.includes("+")) {
+      normalized += "Z";
+    }
+    return format(new Date(normalized), "MMM d, yyyy HH:mm:ss");
   } catch {
     return date;
   }
@@ -51,6 +68,7 @@ export const statusColor: Record<IncidentStatus, string> = {
 
 export const serverStatusColor: Record<ServerStatus, string> = {
   online: "bg-green-500",
+  reachable: "bg-yellow-500",
   offline: "bg-red-500",
   unknown: "bg-zinc-500",
 };
