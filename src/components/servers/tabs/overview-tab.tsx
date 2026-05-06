@@ -23,7 +23,11 @@ import {
 import { SeverityBadge } from "@/components/shared/badges";
 import { useServerMetrics } from "@/lib/hooks/use-metrics";
 import { cn, timeAgo } from "@/lib/utils";
-import type { IncidentResponse, ServerResponse, DetectionConfig } from "@/lib/types";
+import type {
+  IncidentResponse,
+  ServerResponse,
+  DetectionConfig,
+} from "@/lib/types";
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -31,14 +35,62 @@ const DETECTION_FIELDS: {
   key: keyof DetectionConfig;
   label: string;
   unit: string;
-  default: number;
+  default: number | boolean;
 }[] = [
-  { key: "verification_window_minutes", label: "Verification window", unit: "min", default: 10 },
-  { key: "max_remediation_attempts", label: "Max remediation attempts", unit: "attempts", default: 3 },
-  { key: "incident_lookback_minutes", label: "Dedup lookback", unit: "min", default: 30 },
-  { key: "recurrence_streak_threshold", label: "Recurrence streak", unit: "cycles", default: 3 },
-  { key: "recurrence_lookback_hours", label: "Recurrence lookback", unit: "hrs", default: 2 },
-  { key: "volume_spike_multiplier", label: "Volume spike multiplier", unit: "×", default: 10 },
+  {
+    key: "verification_window_minutes",
+    label: "Verification window",
+    unit: "min",
+    default: 10,
+  },
+  {
+    key: "max_remediation_attempts",
+    label: "Max remediation attempts",
+    unit: "attempts",
+    default: 3,
+  },
+  {
+    key: "incident_lookback_minutes",
+    label: "Dedup lookback",
+    unit: "min",
+    default: 30,
+  },
+  {
+    key: "recurrence_streak_threshold",
+    label: "Recurrence streak",
+    unit: "cycles",
+    default: 3,
+  },
+  {
+    key: "recurrence_lookback_hours",
+    label: "Recurrence lookback",
+    unit: "hrs",
+    default: 2,
+  },
+  {
+    key: "volume_spike_multiplier",
+    label: "Volume spike multiplier",
+    unit: "×",
+    default: 10,
+  },
+  {
+    key: "anomaly_dedup_window_hours",
+    label: "Anomaly Dedup Window Hours",
+    unit: "hrs",
+    default: 2,
+  },
+  {
+    key: "anomaly_suppression_ttl_hours",
+    label: "Anomaly Suppression TTL Hours",
+    unit: "hrs",
+    default: 24,
+  },
+  {
+    key: "anomaly_auto_promote",
+    label: "Anomaly Auto Promote",
+    unit: "",
+    default: false,
+  },
 ];
 
 function GaugeCard({
@@ -210,7 +262,10 @@ export function OverviewTab({ serverId, incidents, server }: OverviewTabProps) {
                     color: "#F1F5F9",
                     fontSize: "12px",
                   }}
-                  formatter={(value, name) => [`${Number(value).toFixed(1)}%`, name]}
+                  formatter={(value, name) => [
+                    `${Number(value).toFixed(1)}%`,
+                    name,
+                  ]}
                 />
                 <Area
                   type="monotone"
@@ -266,9 +321,7 @@ export function OverviewTab({ serverId, incidents, server }: OverviewTabProps) {
           </div>
           <div className="space-y-3">
             {incidents.length === 0 ? (
-              <p className="text-sm text-green-400/70">
-                No security events ✓
-              </p>
+              <p className="text-sm text-green-400/70">No security events ✓</p>
             ) : (
               incidents.slice(0, 4).map((inc) => (
                 <div
@@ -303,16 +356,16 @@ export function OverviewTab({ serverId, incidents, server }: OverviewTabProps) {
           <div className="space-y-3">
             {(isWindows
               ? [
-                  { label: "WinRM Service",      active: true  },
-                  { label: "Windows Event Log",   active: true  },
-                  { label: "Performance Counters", active: true  },
-                  { label: "Analysis Engine",     active: false },
+                  { label: "WinRM Service", active: true },
+                  { label: "Windows Event Log", active: true },
+                  { label: "Performance Counters", active: true },
+                  { label: "Analysis Engine", active: false },
                 ]
               : [
-                  { label: "SSH Service",         active: true  },
-                  { label: "Log Collector",       active: true  },
-                  { label: "Metric Agent",        active: true  },
-                  { label: "Analysis Engine",     active: false },
+                  { label: "SSH Service", active: true },
+                  { label: "Log Collector", active: true },
+                  { label: "Metric Agent", active: true },
+                  { label: "Analysis Engine", active: false },
                 ]
             ).map(({ label, active }) => (
               <div
@@ -393,7 +446,10 @@ export function OverviewTab({ serverId, incidents, server }: OverviewTabProps) {
           ) : (
             <div className="text-sm text-muted-foreground space-y-1">
               <p>Not configured</p>
-              <p className="text-xs">All hours treated equally — time-of-day anomaly heuristic is inactive.</p>
+              <p className="text-xs">
+                All hours treated equally — time-of-day anomaly heuristic is
+                inactive.
+              </p>
             </div>
           )}
         </div>
@@ -456,7 +512,8 @@ export function OverviewTab({ serverId, incidents, server }: OverviewTabProps) {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {DETECTION_FIELDS.map((field) => {
             const effective = dc?.[field.key] ?? field.default;
-            const isCustom = dc?.[field.key] != null && dc[field.key] !== field.default;
+            const isCustom =
+              dc?.[field.key] != null && dc[field.key] !== field.default;
             return (
               <div
                 key={field.key}
@@ -471,7 +528,7 @@ export function OverviewTab({ serverId, incidents, server }: OverviewTabProps) {
                       ? Number.isInteger(effective)
                         ? effective
                         : effective.toFixed(2)
-                      : effective}
+                      : effective.toString()}
                   </span>
                   <span className="text-xs text-muted-foreground mb-0.5">
                     {field.unit}
@@ -480,7 +537,7 @@ export function OverviewTab({ serverId, incidents, server }: OverviewTabProps) {
                 <p className="text-[10px] text-muted-foreground">
                   {isCustom ? (
                     <span className="text-primary font-semibold">
-                      Custom (default: {field.default} {field.unit})
+                      Custom (default: {field.default.toString()} {field.unit})
                     </span>
                   ) : (
                     <span>Default</span>
@@ -492,7 +549,8 @@ export function OverviewTab({ serverId, incidents, server }: OverviewTabProps) {
         </div>
         {!dc && (
           <p className="text-xs text-muted-foreground mt-3">
-            All values are global defaults. Edit this server to customize detection behaviour.
+            All values are global defaults. Edit this server to customize
+            detection behaviour.
           </p>
         )}
       </div>

@@ -55,6 +55,9 @@ export interface DetectionConfig {
   recurrence_streak_threshold?: number;   // 2–20, default 3
   recurrence_lookback_hours?: number;     // 0.25–24, default 2
   volume_spike_multiplier?: number;       // 2–100, default 10
+  anomaly_dedup_window_hours?: number;    // 0.25–24, default 2h
+  anomaly_suppression_ttl_hours?: number; // 1–168, default 24h
+  anomaly_auto_promote?: boolean;         // default false — promote high-confidence anomalies automatically
 }
 
 export interface ServerCreate {
@@ -81,6 +84,8 @@ export interface ServerUpdate {
   port?: number;
   business_hours?: BusinessHours;
   detection_config?: DetectionConfig;
+  windows_event_ids?: number[] | null;
+  windows_event_ids_exclude?: number[] | null;
   credential?: Partial<CredentialCreate>;
   current_secret: string;     // REQUIRED — security challenge
 }
@@ -117,6 +122,9 @@ export interface ServerResponse {
   pattern_warmup_until?: string | null;
   log_rate_baseline?: number | null;
   log_rate_updated_at?: string | null;
+  // Windows Event Log filters
+  windows_event_ids?: number[] | null;
+  windows_event_ids_exclude?: number[] | null;
 }
 
 // ── Metrics ─────────────────────────────────────────────────
@@ -201,14 +209,22 @@ export interface LogObservation {
   server_id: string;
   server_hostname?: string;
   type: AnomalyType;
+  fingerprint?: string;
   log_id?: string | null;
+  last_log_id?: string | null;
   log_message?: string | null;
   log_timestamp?: string | null;
+  sample_log_ids?: string[];
   reasons: string[];
   score: number;
   severity: AnomalySeverity;
   status: LogObservationStatus;
   promoted_incident_id?: string | null;
+  // Aggregation fields
+  occurrence_count?: number;
+  first_seen_at?: string;
+  last_seen_at?: string;
+  // AI
   ai_analysis?: string | null;
   ai_analyzed_at?: string | null;
   detected_at: string;

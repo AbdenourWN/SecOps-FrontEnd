@@ -39,4 +39,9 @@ export const anomaliesApi = {
     apiClient.post<{ status: string; observation_id: string; ai_analysis: string }>(
       `/api/anomalies/${id}/analyze`
     ),
+
+  autoPromote: (id: string) =>
+    apiClient.post<{ status: string; observation_id: string }>(
+      `/api/anomalies/${id}/auto-promote`
+    ),
 };

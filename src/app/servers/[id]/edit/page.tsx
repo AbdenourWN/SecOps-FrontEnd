@@ -50,11 +50,12 @@ const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 interface DetectionField {
   key: keyof DetectionConfig;
   label: string;
-  unit: string;
-  min: number;
-  max: number;
-  step: number;
-  default: number;
+  unit?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  default: number | boolean;
+  type?: "boolean";
   summary: string;
   detail: string;
   raiseTip: string;
@@ -164,11 +165,60 @@ const DETECTION_FIELDS: DetectionField[] = [
     lowerTip:
       "Quiet, predictable servers where even a moderate surge in log volume is a meaningful signal worth investigating.",
   },
+  {
+    key: "anomaly_dedup_window_hours",
+    label: "Anomaly Dedup Window",
+    unit: "hrs",
+    min: 0.25,
+    max: 24,
+    step: 0.25,
+    default: 2,
+    summary:
+      "Identical anomaly detections within this window are collapsed into a single observation row — repeated hits just bump the occurrence counter instead of creating new rows.",
+    detail:
+      "The fingerprint encodes server, type, normalized message, and heuristic reasons. After the window expires, the next detection starts a fresh row. This is the primary control for managing observation volume on noisy servers.",
+    raiseTip:
+      "Servers with known repetitive events (e.g. Windows Security logs) — a longer window dramatically reduces row count.",
+    lowerTip:
+      "Quiet servers where each occurrence of the same pattern within a few hours is independently meaningful.",
+  },
+  {
+    key: "anomaly_suppression_ttl_hours",
+    label: "Dismissal Suppression",
+    unit: "hrs",
+    min: 1,
+    max: 168,
+    step: 1,
+    default: 24,
+    summary:
+      "After an observation is dismissed, the same fingerprint is silently suppressed for this many hours. New detections of the same pattern are dropped without creating a row or emitting an event.",
+    detail:
+      "Suppression is fingerprint-scoped, not rule-scoped — only the exact same normalized message and heuristic reasons are suppressed. Different variations of the same event type will still be flagged. The suppression record is stored in the dismissed_fingerprints collection with a TTL index.",
+    raiseTip:
+      "Chronic noisy patterns you have already reviewed and confirmed as benign — raise to avoid re-reviewing the same thing daily.",
+    lowerTip:
+      "Patterns that could become malicious after a short quiet period — lower so they resurface quickly if conditions change.",
+  },
+  {
+    key: "anomaly_auto_promote",
+    label: "Auto-Promote Anomalies",
+    type: "boolean",
+    default: false,
+    summary:
+      "When enabled, observations with severity=high and ≥3 occurrences are automatically promoted to incidents without manual review — as long as the fingerprint is not in the dismissal suppression list.",
+    detail:
+      "Auto-promotion runs every time an existing observation's occurrence count is bumped. The promotion creates a real incident with rule_id='anomaly:promoted' and marks the source observation as promoted_to_incident. The incident description includes the occurrence count and the list of triggering reasons.",
+    raiseTip:
+      "Critical servers where high-severity repeated anomalies should always create an incident immediately — reduces operator burden on well-tuned servers.",
+    lowerTip:
+      "Noisy servers still being tuned — keep off until keyword filtering and dedup settings are dialled in to avoid incident spam.",
+  },
 ];
 
-const DETECTION_DEFAULTS: Record<string, number> = Object.fromEntries(
-  DETECTION_FIELDS.map((f) => [f.key, f.default]),
-);
+const DETECTION_DEFAULTS: Record<string, number | boolean> = {
+  ...Object.fromEntries(DETECTION_FIELDS.map((f) => [f.key, f.default])),
+  anomaly_auto_promote: false,
+};
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -192,8 +242,11 @@ export default function EditServerPage({
   const [bhDays, setBhDays] = useState<number[]>([1, 2, 3, 4, 5]);
 
   const [detectionConfig, setDetectionConfig] = useState<
-    Record<string, number>
+    Record<string, number | boolean>
   >({ ...DETECTION_DEFAULTS });
+
+  const [winEventAllow, setWinEventAllow] = useState("");
+  const [winEventExclude, setWinEventExclude] = useState("");
 
   const [changeCredential, setChangeCredential] = useState(false);
   const [newUsername, setNewUsername] = useState("");
@@ -217,6 +270,8 @@ export default function EditServerPage({
       ...DETECTION_DEFAULTS,
       ...(server.detection_config ?? {}),
     });
+    setWinEventAllow((server.windows_event_ids ?? []).join(", "));
+    setWinEventExclude((server.windows_event_ids_exclude ?? []).join(", "));
   }, [server]);
 
   const updateServer = useUpdateServer();
@@ -228,8 +283,13 @@ export default function EditServerPage({
       prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort(),
     );
 
-  const setField = (key: string, value: number) =>
+  const setField = (key: string, value: number | boolean) =>
     setDetectionConfig((prev) => ({ ...prev, [key]: value }));
+
+  const parseIds = (raw: string): number[] | null =>
+    raw.trim() === ""
+      ? null
+      : raw.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
 
   const handleSave = async () => {
     setError(null);
@@ -258,6 +318,8 @@ export default function EditServerPage({
             tz: "UTC",
           },
           detection_config: detectionConfig,
+          windows_event_ids: parseIds(winEventAllow),
+          windows_event_ids_exclude: parseIds(winEventExclude),
           credential: changeCredential
             ? { username: newUsername || undefined, secret: newSecret }
             : undefined,
@@ -450,22 +512,85 @@ export default function EditServerPage({
         >
           <div className="space-y-4">
             {DETECTION_FIELDS.map((field) => {
-              const current = detectionConfig[field.key] ?? field.default;
-              const isCustom = current !== field.default;
-              const pct =
-                ((current - field.min) / (field.max - field.min)) * 100;
+              const isBoolean = field.type === "boolean";
+              const currentBool = !!detectionConfig[field.key];
+              const currentNum = Number(detectionConfig[field.key] ?? field.default);
+              const isCustom = isBoolean
+                ? currentBool !== field.default
+                : currentNum !== field.default;
 
+              if (isBoolean) {
+                return (
+                  <div
+                    key={field.key}
+                    className={cn(
+                      "rounded-xl border p-5 space-y-4 transition-colors",
+                      isCustom ? "border-primary/30 bg-primary/5" : "border-border bg-card/50",
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold">{field.label}</h3>
+                          {isCustom && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/20">
+                              Custom
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Default: {field.default ? "on" : "off"}
+                        </p>
+                      </div>
+                      <label className="relative cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={currentBool}
+                          onChange={(e) => setField(field.key, e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div className={cn(
+                          "w-11 h-6 rounded-full transition-colors",
+                          currentBool ? "bg-primary" : "bg-muted",
+                        )} />
+                        <div className={cn(
+                          "absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform",
+                          currentBool ? "translate-x-5" : "translate-x-0",
+                        )} />
+                      </label>
+                    </div>
+                    <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+                      <p>{field.summary}</p>
+                      <p className="text-xs">{field.detail}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Tip variant="raise" text={field.raiseTip} />
+                      <Tip variant="lower" text={field.lowerTip} />
+                    </div>
+                    {isCustom && (
+                      <button
+                        type="button"
+                        onClick={() => setField(field.key, field.default)}
+                        className="text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Reset to default ({field.default ? "on" : "off"})
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+
+              // Numeric slider field
+              const pct = ((currentNum - field.min!) / (field.max! - field.min!)) * 100;
               return (
                 <div
                   key={field.key}
                   className={cn(
                     "rounded-xl border p-5 space-y-4 transition-colors",
-                    isCustom
-                      ? "border-primary/30 bg-primary/5"
-                      : "border-border bg-card/50",
+                    isCustom ? "border-primary/30 bg-primary/5" : "border-border bg-card/50",
                   )}
                 >
-                  {/* Header row */}
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2">
@@ -480,21 +605,17 @@ export default function EditServerPage({
                         Default: {field.default} {field.unit}
                       </p>
                     </div>
-                    {/* Numeric input for precise entry */}
                     <div className="flex items-center gap-2 shrink-0">
                       <input
                         type="number"
                         min={field.min}
                         max={field.max}
                         step={field.step}
-                        value={current}
+                        value={currentNum}
                         onChange={(e) => {
                           const v = Number(e.target.value);
                           if (!isNaN(v))
-                            setField(
-                              field.key,
-                              Math.min(field.max, Math.max(field.min, v)),
-                            );
+                            setField(field.key, Math.min(field.max!, Math.max(field.min!, v)));
                         }}
                         className="w-20 h-9 rounded-lg border border-border bg-background text-center text-sm font-bold tabular-nums focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                       />
@@ -503,42 +624,28 @@ export default function EditServerPage({
                       </span>
                     </div>
                   </div>
-
-                  {/* Slider */}
                   <div className="space-y-1.5">
                     <Slider
-                      value={current}
+                      value={currentNum}
                       onValueChange={(v) => setField(field.key, v)}
                       min={field.min}
                       max={field.max}
                       step={field.step}
                     />
                     <div className="flex justify-between text-[10px] text-muted-foreground tabular-nums">
-                      <span>
-                        {field.min} {field.unit}
-                      </span>
-                      <span className="font-semibold text-foreground">
-                        {pct.toFixed(0)}% of range
-                      </span>
-                      <span>
-                        {field.max} {field.unit}
-                      </span>
+                      <span>{field.min} {field.unit}</span>
+                      <span className="font-semibold text-foreground">{pct.toFixed(0)}% of range</span>
+                      <span>{field.max} {field.unit}</span>
                     </div>
                   </div>
-
-                  {/* Descriptions */}
                   <div className="space-y-2 text-sm text-muted-foreground leading-relaxed">
                     <p>{field.summary}</p>
                     <p className="text-xs">{field.detail}</p>
                   </div>
-
-                  {/* Raise / Lower tips */}
                   <div className="grid grid-cols-2 gap-3">
                     <Tip variant="raise" text={field.raiseTip} />
                     <Tip variant="lower" text={field.lowerTip} />
                   </div>
-
-                  {/* Reset to default */}
                   {isCustom && (
                     <button
                       type="button"
@@ -555,7 +662,38 @@ export default function EditServerPage({
           </div>
         </Section>
 
-        {/* ── Section 4: Anomaly State ─────────────────────────────────────── */}
+        {/* ── Section 4: Windows Event Log Filters ─────────────────────────── */}
+        {osType === "windows" && (
+          <Section
+            icon={<Settings2 className="h-5 w-5" />}
+            title="Windows Event Log Filters"
+            description="Control which Windows Event IDs are collected from System, Security, and Application logs. By default all Level 1–3 events are collected. Use the allowlist to focus on specific event types, or the denylist to silence known-noisy IDs."
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="EventID Allowlist" hint="Comma-separated — only these IDs collected">
+                <Input
+                  value={winEventAllow}
+                  onChange={(e) => setWinEventAllow(e.target.value)}
+                  placeholder="e.g. 4625, 4720, 7034"
+                  className="font-mono"
+                />
+              </Field>
+              <Field label="EventID Denylist" hint="Comma-separated — these IDs excluded">
+                <Input
+                  value={winEventExclude}
+                  onChange={(e) => setWinEventExclude(e.target.value)}
+                  placeholder="e.g. 7036, 7040"
+                  className="font-mono"
+                />
+              </Field>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Common high-signal IDs: <span className="font-mono">4625</span> (failed logon), <span className="font-mono">4720</span> (user created), <span className="font-mono">4732</span> (added to group), <span className="font-mono">7034</span> (service crash), <span className="font-mono">7045</span> (new service). Leave both blank to collect all Level 1–3 events.
+            </p>
+          </Section>
+        )}
+
+        {/* ── Section 5: Anomaly State ─────────────────────────────────────── */}
         <Section
           icon={<Telescope className="h-5 w-5" />}
           title="Anomaly Detection State"
@@ -635,7 +773,7 @@ export default function EditServerPage({
           </div>
         </Section>
 
-        {/* ── Section 5: Credentials ───────────────────────────────────────── */}
+        {/* ── Section 6: Credentials ───────────────────────────────────────── */}
         <Section
           icon={<KeyRound className="h-5 w-5" />}
           title="Stored Credentials"
@@ -687,7 +825,7 @@ export default function EditServerPage({
           )}
         </Section>
 
-        {/* ── Section 6: Security Challenge ────────────────────────────────── */}
+        {/* ── Section 7: Security Challenge ────────────────────────────────── */}
         <Section
           icon={<ShieldAlert className="h-5 w-5 text-amber-400" />}
           title="Security Challenge"

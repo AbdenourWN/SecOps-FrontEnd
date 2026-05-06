@@ -177,7 +177,7 @@ export default function ServersPage() {
         </div>
 
         {/* Overview Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="rounded-2xl border border-border bg-card/40 backdrop-blur-md p-5 flex flex-col justify-between overflow-hidden relative">
             <div className="absolute -right-6 -top-6 h-24 w-24 bg-primary/10 rounded-full blur-2xl" />
             <p className="text-sm font-medium text-muted-foreground mb-4">Total Nodes</p>

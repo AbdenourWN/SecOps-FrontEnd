@@ -322,7 +322,7 @@ export default function AnomaliesPage() {
 
                     {/* Body */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span
                           className={cn(
                             "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border",
@@ -339,11 +339,18 @@ export default function AnomaliesPage() {
                         >
                           {statusLabel[obs.status]}
                         </span>
+                        {(obs.occurrence_count ?? 1) > 1 && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold border bg-muted/60 text-muted-foreground">
+                            ×{obs.occurrence_count}
+                          </span>
+                        )}
                         <span className="text-[10px] text-muted-foreground font-mono">
                           {obs.server_hostname || obs.server_id.slice(-6)}
                         </span>
                         <span className="text-[10px] text-muted-foreground font-mono ml-auto">
-                          {timeAgo(obs.detected_at)}
+                          {obs.last_seen_at
+                            ? `last seen ${timeAgo(obs.last_seen_at)}`
+                            : timeAgo(obs.detected_at)}
                         </span>
                       </div>
                       <p className="text-sm font-mono truncate">
@@ -374,18 +381,31 @@ export default function AnomaliesPage() {
                     <div className="px-4 pb-4 border-t border-border/60 pt-3 space-y-3">
                       <div className="grid grid-cols-2 gap-4 text-xs">
                         <DetailField label="Score" value={obs.score.toString()} />
-                        <DetailField
-                          label="Detected At"
-                          value={new Date(obs.detected_at).toLocaleString()}
-                        />
+                        {(obs.occurrence_count ?? 1) > 1 ? (
+                          <>
+                            <DetailField
+                              label={`Occurrences (×${obs.occurrence_count})`}
+                              value={`First: ${new Date(obs.first_seen_at ?? obs.detected_at).toLocaleString()}`}
+                            />
+                            <DetailField
+                              label="Last Seen"
+                              value={new Date(obs.last_seen_at ?? obs.detected_at).toLocaleString()}
+                            />
+                          </>
+                        ) : (
+                          <DetailField
+                            label="Detected At"
+                            value={new Date(obs.detected_at).toLocaleString()}
+                          />
+                        )}
                         {obs.log_timestamp && (
                           <DetailField
                             label="Log Timestamp"
                             value={new Date(obs.log_timestamp).toLocaleString()}
                           />
                         )}
-                        {obs.log_id && (
-                          <DetailField label="Log ID" value={obs.log_id} mono />
+                        {obs.last_log_id && (
+                          <DetailField label="Latest Log ID" value={obs.last_log_id} mono />
                         )}
                         {obs.promoted_incident_id && (
                           <DetailField
