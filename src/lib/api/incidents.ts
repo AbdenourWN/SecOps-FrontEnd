@@ -33,7 +33,14 @@ export const incidentsApi = {
     apiClient.get<IncidentStats>("/api/incidents/stats"),
 
   triggerAiAnalysis: (incidentId: string) =>
-    apiClient.post<{ status: string; incident_id: string; ai_analysis: string }>(
-      "/api/analysis/" + incidentId + "/analyze"
-    ),
+    apiClient.post<{
+      status: string;
+      incident_id: string;
+      analysis_id: string;
+      ai_analysis: string;
+      suggested_command_ids: string[];
+      manual_commands: { command: string; purpose: string; note: string }[];
+      confidence: number;
+      analyzed_at: string;
+    }>("/api/analysis/" + incidentId + "/analyze"),
 };

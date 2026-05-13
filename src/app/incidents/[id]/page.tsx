@@ -7,22 +7,38 @@ import {
   useAiAnalysis,
 } from "@/lib/hooks/use-incidents";
 import {
-  SeverityBadge,
-  StatusBadge,
-  timeAgo,
-} from "@/components/shared/badges";
+  useAiCommandsForSource,
+  useApproveCommands,
+  useRejectCommands,
+} from "@/lib/hooks/use-ai-actions";
+import { CommandDetailModal } from "@/components/shared/command-detail-modal";
+import { TypingCursor } from "@/components/shared/typing-cursor";
+import { SeverityBadge, timeAgo } from "@/components/shared/badges";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft,
   Brain,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCopy,
+  Eye,
   RefreshCw,
   Server,
   Clock,
   Shield,
+  Terminal,
+  Loader2,
   FileText,
   ExternalLink,
   AlertTriangle,
+  XCircle,
+  ShieldAlert,
+  WifiOff,
 } from "lucide-react";
+import type { AiCommand } from "@/lib/types";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Select,
   SelectContent,
@@ -30,12 +46,150 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { use } from "react";
+import { use, useState } from "react";
+import { useAiAnalysisStream } from "@/lib/hooks/use-ai-stream";
 import { toast } from "sonner";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import type { IncidentStatus } from "@/lib/types";
+
+function ManualCommandCard({ command, purpose, note }: { command: string; purpose: string; note: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(command).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return (
+    <div className="rounded-lg border border-violet-500/15 bg-background/50 p-3 space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-0.5">
+          <p className="text-xs text-muted-foreground">{purpose}</p>
+          <code className="block text-xs font-mono text-violet-300 break-all leading-relaxed">{command}</code>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors mt-0.5"
+        >
+          {copied ? (
+            <><CheckCircle2 className="h-3 w-3 text-emerald-400" /><span className="text-emerald-400">Copied</span></>
+          ) : (
+            <><ClipboardCopy className="h-3 w-3" /> Copy</>
+          )}
+        </button>
+      </div>
+      {note && (
+        <p className="text-[10px] text-violet-400/70 font-medium">⚠ {note}</p>
+      )}
+    </div>
+  );
+}
+
+const RISK_STYLES: Record<string, string> = {
+  low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  medium: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  high: "bg-red-500/10 text-red-400 border-red-500/20",
+};
+
+const STATUS_ICON = {
+  pending: null,
+  approved: <Loader2 className="h-3 w-3 animate-spin text-blue-400" />,
+  executing: <Loader2 className="h-3 w-3 animate-spin text-blue-400" />,
+  completed: <CheckCircle2 className="h-3 w-3 text-emerald-400" />,
+  failed: <XCircle className="h-3 w-3 text-red-400" />,
+  blocked: <ShieldAlert className="h-3 w-3 text-red-400" />,
+  rejected: <XCircle className="h-3 w-3 text-muted-foreground" />,
+};
+
+function CommandCard({
+  cmd,
+  onApprove,
+  onReject,
+  approving,
+  rejecting,
+  onViewDetails,
+}: {
+  cmd: AiCommand;
+  onApprove: () => void;
+  onReject: () => void;
+  approving: boolean;
+  rejecting: boolean;
+  onViewDetails: () => void;
+}) {
+  const canAct = cmd.status === "pending";
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border p-3 space-y-2 transition-colors",
+        cmd.status === "pending" ? "border-amber-500/20 bg-amber-500/5" :
+        cmd.status === "executing" ? "border-blue-500/20 bg-blue-500/5" :
+        cmd.status === "completed" ? "border-emerald-500/20 bg-emerald-500/5" :
+        cmd.status === "blocked" ? "border-red-500/20 bg-red-500/5" :
+        "border-border bg-card/50"
+      )}
+    >
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2 min-w-0">
+          <div className="mt-0.5 shrink-0">{STATUS_ICON[cmd.status]}</div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={cn("text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border", RISK_STYLES[cmd.risk_level] ?? RISK_STYLES.medium)}>
+                {cmd.risk_level}
+              </span>
+              {cmd.is_read_only && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  diagnostic
+                </span>
+              )}
+              <span className="text-[10px] text-muted-foreground">{cmd.os_type}</span>
+            </div>
+            <code className="block text-xs font-mono mt-1 text-foreground break-all">{cmd.command}</code>
+            <p className="text-xs text-muted-foreground mt-0.5">{cmd.purpose}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {canAct ? (
+            <>
+              <button onClick={onApprove} disabled={approving}
+                className="text-[11px] font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50">
+                Approve
+              </button>
+              <button onClick={onReject} disabled={rejecting}
+                className="text-[11px] font-semibold px-2 py-1 rounded bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                Dismiss
+              </button>
+            </>
+          ) : (
+            <button onClick={onViewDetails}
+              className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
+              <Eye className="h-3 w-3" /> Details
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Blocked reason */}
+      {cmd.status === "blocked" && cmd.error && (
+        <p className="text-xs text-red-400">{cmd.error}</p>
+      )}
+
+      {/* Impact verdict summary */}
+      {cmd.status === "completed" && cmd.impact_verdict && (
+        <p className={cn("text-[11px] font-semibold", {
+          "text-emerald-400": cmd.impact_verdict === "resolved",
+          "text-amber-400": cmd.impact_verdict === "partial",
+          "text-muted-foreground": cmd.impact_verdict === "no_effect",
+          "text-red-400": cmd.impact_verdict === "made_worse",
+        })}>
+          {cmd.impact_verdict.replace("_", " ")}
+          {cmd.impact_summary ? ` · ${cmd.impact_summary}` : ""}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function IncidentDetailPage({
   params,
@@ -46,6 +200,36 @@ export default function IncidentDetailPage({
   const { data: incident, isLoading } = useIncident(id);
   const updateStatus = useUpdateIncidentStatus();
   const aiAnalysis = useAiAnalysis();
+  const analysisRunning = aiAnalysis.isPending || !!incident?.ai_analysis_in_progress;
+  const { streamedMarkdown, gapDetected } = useAiAnalysisStream("incident", id, incident?.server_id, analysisRunning);
+  const [cmdPage, setCmdPage] = useState(1);
+  const { data: commandsData } = useAiCommandsForSource("incident", id, incident?.server_id, cmdPage);
+  const approveCommands = useApproveCommands();
+  const rejectCommands = useRejectCommands();
+  const [selectedCmd, setSelectedCmd] = useState<AiCommand | null>(null);
+
+  const commands = commandsData?.results ?? [];
+  const pendingCommands = commands.filter((c) => c.status === "pending");
+  const cmdTotal = commandsData?.total ?? 0;
+  const cmdTotalPages = Math.max(1, Math.ceil(cmdTotal / 10));
+
+  const handleApproveSelected = async (ids: string[]) => {
+    try {
+      await approveCommands.mutateAsync({ command_ids: ids });
+      toast.success(`${ids.length} command(s) queued for execution`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const handleRejectSelected = async (ids: string[]) => {
+    try {
+      await rejectCommands.mutateAsync({ command_ids: ids });
+      toast.success(`${ids.length} command(s) dismissed`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
 
   const handleStatusChange = async (newStatus: IncidentStatus) => {
     try {
@@ -59,7 +243,7 @@ export default function IncidentDetailPage({
   const handleAiAnalysis = async () => {
     try {
       await aiAnalysis.mutateAsync(id);
-      toast.success("AI analysis completed");
+      toast.success("AI analysis complete — see Suggested Commands below");
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -102,6 +286,9 @@ export default function IncidentDetailPage({
 
   return (
     <AppShell>
+      {selectedCmd && (
+        <CommandDetailModal cmd={selectedCmd} onClose={() => setSelectedCmd(null)} />
+      )}
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -222,28 +409,54 @@ export default function IncidentDetailPage({
                   <Brain className="h-3.5 w-3.5" />
                   AI Analysis
                 </h3>
-                {!incident.ai_analysis && (
-                  <button
-                    onClick={handleAiAnalysis}
-                    disabled={aiAnalysis.isPending}
-                    className="flex items-center gap-2 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-xs font-semibold hover:bg-primary/20 transition-colors disabled:opacity-50"
-                  >
-                    {aiAnalysis.isPending ? (
-                      <>
-                        <RefreshCw className="h-3 w-3 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <Brain className="h-3 w-3" />
-                        Run Analysis
-                      </>
-                    )}
-                  </button>
-                )}
+                <button
+                  onClick={handleAiAnalysis}
+                  disabled={analysisRunning}
+                  className="flex items-center gap-2 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-xs font-semibold hover:bg-primary/20 transition-colors disabled:opacity-50"
+                >
+                  {analysisRunning ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Analyzing…
+                    </>
+                  ) : incident.ai_analysis ? (
+                    <>
+                      <RefreshCw className="h-3 w-3" />
+                      Re-analyze
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="h-3 w-3" />
+                      Run Analysis
+                    </>
+                  )}
+                </button>
               </div>
-              {incident.ai_analysis ? (
-                <div className="max-h-125 overflow-y-auto rounded-lg bg-slate-50 dark:bg-muted/20 border border-slate-200 dark:border-border p-5">
+
+              {/* Reconnect gap notice */}
+              {gapDetected && analysisRunning && (
+                <div className="mb-3 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-linear-to-r from-amber-500/10 to-orange-500/5 px-4 py-3 shadow-sm">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 border border-amber-500/25">
+                    <WifiOff className="h-3.5 w-3.5 text-amber-400" />
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-xs font-semibold text-amber-300">Reconnected mid-analysis</p>
+                    <p className="text-[11px] leading-relaxed text-amber-400/80">
+                      Some output was streamed while you were away and couldn&apos;t be recovered.
+                      Showing the latest output — the <span className="font-semibold text-amber-300">full analysis will appear automatically</span> when the agent finishes.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Analysis content — streaming while running, saved when done */}
+              {(analysisRunning && streamedMarkdown) || incident.ai_analysis ? (
+                <div className={cn(
+                  "max-h-125 overflow-y-auto rounded-lg bg-slate-50 dark:bg-muted/20 border p-5",
+                  analysisRunning
+                    ? "border-primary/40 shadow-[0_0_0_1px_rgba(var(--primary)/0.15)] animate-pulse-border"
+                    : "border-slate-200 dark:border-border"
+                )}>
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -272,16 +485,115 @@ export default function IncidentDetailPage({
                       hr: () => <hr className="border-slate-200 dark:border-slate-700 my-4" />,
                     }}
                   >
-                    {incident.ai_analysis}
+                    {(analysisRunning && streamedMarkdown) ? streamedMarkdown : incident.ai_analysis!}
                   </ReactMarkdown>
+                  {analysisRunning && <TypingCursor />}
+                </div>
+              ) : analysisRunning ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  AI agent is gathering evidence, please wait…
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   No AI analysis available. Click &quot;Run Analysis&quot; to
-                  generate one using the local LLM.
+                  investigate this incident with the AI triage agent.
                 </p>
               )}
             </div>
+
+            {/* Manual Commands */}
+            {incident.ai_manual_commands && incident.ai_manual_commands.length > 0 && (
+              <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Terminal className="h-3.5 w-3.5 text-violet-400" />
+                    Manual Commands
+                  </h3>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                    run via terminal
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  These commands need sudo or an interactive session — copy and run them in the{" "}
+                  <span className="font-medium text-foreground">Terminal</span> tab on the server page.
+                </p>
+                <div className="space-y-2">
+                  {incident.ai_manual_commands.map((mc, i) => (
+                    <ManualCommandCard key={i} command={mc.command} purpose={mc.purpose} note={mc.note} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Suggested Commands */}
+            {(commands.length > 0 || cmdTotal > 0) && (
+              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Terminal className="h-3.5 w-3.5" />
+                    Suggested Commands
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                      {cmdTotal}
+                    </span>
+                  </h3>
+                  {pendingCommands.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleApproveSelected(pendingCommands.map((c) => c._id))}
+                        disabled={approveCommands.isPending}
+                        className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                      >
+                        Approve all
+                      </button>
+                      <button
+                        onClick={() => handleRejectSelected(pendingCommands.map((c) => c._id))}
+                        disabled={rejectCommands.isPending}
+                        className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Dismiss all
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {commands.map((cmd) => (
+                    <CommandCard
+                      key={cmd._id}
+                      cmd={cmd}
+                      onApprove={() => handleApproveSelected([cmd._id])}
+                      onReject={() => handleRejectSelected([cmd._id])}
+                      approving={approveCommands.isPending}
+                      rejecting={rejectCommands.isPending}
+                      onViewDetails={() => setSelectedCmd(cmd)}
+                    />
+                  ))}
+                </div>
+                {cmdTotalPages > 1 && (
+                  <div className="flex items-center justify-between pt-1">
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      Page {cmdPage} of {cmdTotalPages}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCmdPage((p) => Math.max(1, p - 1))}
+                        disabled={cmdPage <= 1}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setCmdPage((p) => Math.min(cmdTotalPages, p + 1))}
+                        disabled={cmdPage >= cmdTotalPages}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -370,7 +682,7 @@ export default function IncidentDetailPage({
                   href={`/servers/${incident.server_id}`}
                   className="flex items-center gap-1.5 text-sm text-primary hover:underline"
                 >
-                  {incident.server_id.slice(0, 12)}…
+                  {incident.server_hostname || incident.server_id.slice(0, 12)}
                   <ExternalLink className="h-3 w-3" />
                 </Link>
               </div>

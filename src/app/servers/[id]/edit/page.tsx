@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowLeft,
+  Bot,
   CalendarDays,
   KeyRound,
   Network,
@@ -253,6 +254,7 @@ export default function EditServerPage({
   const [newSecret, setNewSecret] = useState("");
   const [currentSecret, setCurrentSecret] = useState("");
 
+  const [aiAutonomyLevel, setAiAutonomyLevel] = useState<"read_only" | "suggest">("read_only");
   const [warmupMinutes, setWarmupMinutes] = useState(60);
   const [error, setError] = useState<string | null>(null);
 
@@ -272,6 +274,7 @@ export default function EditServerPage({
     });
     setWinEventAllow((server.windows_event_ids ?? []).join(", "));
     setWinEventExclude((server.windows_event_ids_exclude ?? []).join(", "));
+    setAiAutonomyLevel(server.ai_autonomy_level ?? "read_only");
   }, [server]);
 
   const updateServer = useUpdateServer();
@@ -320,6 +323,7 @@ export default function EditServerPage({
           detection_config: detectionConfig,
           windows_event_ids: parseIds(winEventAllow),
           windows_event_ids_exclude: parseIds(winEventExclude),
+          ai_autonomy_level: aiAutonomyLevel,
           credential: changeCredential
             ? { username: newUsername || undefined, secret: newSecret }
             : undefined,
@@ -773,7 +777,51 @@ export default function EditServerPage({
           </div>
         </Section>
 
-        {/* ── Section 6: Credentials ───────────────────────────────────────── */}
+        {/* ── Section 6: AI Autonomy ──────────────────────────────────────── */}
+        <Section
+          icon={<Bot className="h-5 w-5" />}
+          title="AI Agent Autonomy"
+          description="Controls how much authority the AI triage agent has when it investigates incidents and anomalies on this server. Start with Read-only on new servers and raise only after you trust the signal quality."
+        >
+          <div className="space-y-4">
+            <div className="flex rounded-xl overflow-hidden border border-border">
+              {(
+                [
+                  {
+                    value: "read_only" as const,
+                    label: "Read-only",
+                    description: "Agent investigates and suggests. No mutations.",
+                  },
+                  {
+                    value: "suggest" as const,
+                    label: "Suggest",
+                    description: "Agent queues actions for operator approval.",
+                  },
+                ] as const
+              ).map((opt, i) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setAiAutonomyLevel(opt.value)}
+                  className={cn(
+                    "flex-1 px-3 py-3 text-left transition-colors",
+                    i === 0 ? "" : "border-l border-border",
+                    aiAutonomyLevel === opt.value
+                      ? "bg-primary/10 text-foreground"
+                      : "bg-card/50 text-muted-foreground hover:bg-muted/50",
+                  )}
+                >
+                  <p className={cn("text-xs font-bold", aiAutonomyLevel === opt.value ? "text-primary" : "")}>
+                    {opt.label}
+                  </p>
+                  <p className="text-[11px] mt-0.5 leading-tight">{opt.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </Section>
+
+        {/* ── Section 8: Credentials ───────────────────────────────────────── */}
         <Section
           icon={<KeyRound className="h-5 w-5" />}
           title="Stored Credentials"
@@ -825,7 +873,7 @@ export default function EditServerPage({
           )}
         </Section>
 
-        {/* ── Section 7: Security Challenge ────────────────────────────────── */}
+        {/* ── Section 9: Security Challenge ────────────────────────────────── */}
         <Section
           icon={<ShieldAlert className="h-5 w-5 text-amber-400" />}
           title="Security Challenge"

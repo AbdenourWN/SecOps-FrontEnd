@@ -64,6 +64,35 @@
 }
 
 /* ========================================
+   AI Typing Cursor
+   ======================================== */
+@keyframes ai-cursor-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scaleY(0.88);
+  }
+}
+
+.ai-typing-cursor {
+  display: inline-block;
+  width: 9px;
+  height: 1.15em;
+  margin-left: 4px;
+  vertical-align: -3px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #60a5fa 0%, #818cf8 60%, #a78bfa 100%);
+  box-shadow:
+    0 0 10px rgba(96, 165, 250, 0.55),
+    0 0 4px rgba(129, 140, 248, 0.4);
+  animation: ai-cursor-pulse 1.1s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* ========================================
    SecOps DARK Theme
    ======================================== */
 :root,

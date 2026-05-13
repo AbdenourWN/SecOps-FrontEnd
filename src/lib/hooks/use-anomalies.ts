@@ -21,7 +21,8 @@ export function useAnomaly(id: string) {
     queryKey: ["anomalies", id],
     queryFn: () => anomaliesApi.getById(id),
     enabled: !!id,
-    refetchInterval: 300_000,
+    refetchInterval: (query) =>
+      query.state.data?.ai_analysis_in_progress ? 3_000 : 300_000,
   });
 }
 
@@ -60,6 +61,13 @@ export function useAnomalyAiAnalysis() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => anomaliesApi.triggerAiAnalysis(id),
+    onMutate: (id) => {
+      qc.setQueryData(
+        ["anomalies", id],
+        (old: LogObservation | undefined) =>
+          old ? { ...old, ai_analysis_in_progress: true } : old
+      );
+    },
     onSuccess: (data, id) => {
       qc.setQueryData(
         ["anomalies", id],
@@ -68,11 +76,14 @@ export function useAnomalyAiAnalysis() {
             ? {
                 ...old,
                 ai_analysis: data.ai_analysis,
+                ai_manual_commands: data.manual_commands ?? [],
                 ai_analyzed_at: new Date().toISOString(),
+                ai_analysis_in_progress: false,
               }
             : old
       );
       qc.invalidateQueries({ queryKey: ["anomalies"] });
+      qc.invalidateQueries({ queryKey: ["ai-commands"] });
     },
   });
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
+  Bot,
   LayoutDashboard,
   Server,
   AlertTriangle,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useAnomalyStats } from "@/lib/hooks/use-anomalies";
+import { useAiPendingCount, useAiCommandPendingCount } from "@/lib/hooks/use-ai-actions";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -25,6 +27,7 @@ const navItems = [
   { href: "/logs", label: "Log Viewer", icon: FileText },
   { href: "/rules", label: "Detection Rules", icon: Shield },
   { href: "/automation", label: "Automation", icon: Terminal },
+  { href: "/ai-actions", label: "AI Actions", icon: Bot },
 ];
 
 interface SidebarProps {
@@ -36,6 +39,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { data: anomalyStats } = useAnomalyStats();
   const pendingAnomalies = anomalyStats?.pending ?? 0;
+  const { data: mutationCount } = useAiPendingCount();
+  const { data: commandCount } = useAiCommandPendingCount();
+  const pendingAiActions = (mutationCount?.pending ?? 0) + (commandCount?.pending ?? 0);
 
   const navLink = (href: string, label: string, Icon: React.ElementType) => {
     const active =
@@ -77,6 +83,16 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             )}
           >
             {pendingAnomalies > 99 ? "99+" : pendingAnomalies}
+          </span>
+        )}
+        {label === "AI Actions" && pendingAiActions > 0 && (
+          <span
+            className={cn(
+              "ml-auto flex h-4 min-w-4 items-center justify-center rounded-full text-[10px] font-bold px-1.5 tabular-nums",
+              active ? "bg-white/20 text-white" : "bg-primary/15 text-primary",
+            )}
+          >
+            {pendingAiActions > 99 ? "99+" : pendingAiActions}
           </span>
         )}
       </Link>

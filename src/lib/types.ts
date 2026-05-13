@@ -86,6 +86,7 @@ export interface ServerUpdate {
   detection_config?: DetectionConfig;
   windows_event_ids?: number[] | null;
   windows_event_ids_exclude?: number[] | null;
+  ai_autonomy_level?: "read_only" | "suggest";
   credential?: Partial<CredentialCreate>;
   current_secret: string;     // REQUIRED — security challenge
 }
@@ -125,6 +126,8 @@ export interface ServerResponse {
   // Windows Event Log filters
   windows_event_ids?: number[] | null;
   windows_event_ids_exclude?: number[] | null;
+  // AI agent autonomy policy
+  ai_autonomy_level?: "read_only" | "suggest";
 }
 
 // ── Metrics ─────────────────────────────────────────────────
@@ -157,6 +160,7 @@ export interface IncidentListResponse {
 export interface IncidentResponse {
   _id: string;
   server_id: string;
+  server_hostname?: string;
   rule_id: string;
   log_id: string;
   severity: SeverityLevel;
@@ -167,6 +171,10 @@ export interface IncidentResponse {
   description: string;
   context: Record<string, string>;
   ai_analysis: string | null;
+  ai_analysis_latest_id?: string | null;
+  ai_analysis_count?: number;
+  ai_analysis_in_progress?: boolean;
+  ai_manual_commands?: { command: string; purpose: string; note: string }[] | null;
   automation_skipped_reason?: "script_disabled" | "script_missing" | "recurrence_detected" | null;
   automation_failure_reason?: "remediation_exhausted" | "permission_denied" | "execution_failed" | "unsafe_placeholder" | null;
   remediation_attempts?: number;
@@ -224,9 +232,14 @@ export interface LogObservation {
   occurrence_count?: number;
   first_seen_at?: string;
   last_seen_at?: string;
-  // AI
+  // AI (legacy inline + new pointers)
   ai_analysis?: string | null;
   ai_analyzed_at?: string | null;
+  ai_promotion_recommendation?: "promote_to_incident" | "dismiss" | "monitor" | null;
+  ai_manual_commands?: { command: string; purpose: string; note: string }[] | null;
+  ai_analysis_latest_id?: string | null;
+  ai_analysis_count?: number;
+  ai_analysis_in_progress?: boolean;
   detected_at: string;
   reviewed_at?: string | null;
 }
@@ -245,6 +258,128 @@ export interface AnomalyListResponse {
   page: number;
   page_size: number;
   results: LogObservation[];
+}
+
+// ── AI Actions (pending-action inbox for suggest-level autonomy) ────────────
+export type AiActionStatus = "pending" | "approved" | "rejected";
+export type AiActionType =
+  | "dismiss_anomaly"
+  | "promote_anomaly"
+  | "mark_incident_false_positive";
+
+export interface AiPendingAction {
+  _id: string;
+  action_type: AiActionType;
+  payload: Record<string, string>;
+  run_id: string;
+  status: AiActionStatus;
+  created_at: string;
+  decided_at: string | null;
+  decided_by: string | null;
+  outcome?: Record<string, unknown> | null;
+}
+
+export interface AiActionsListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  results: AiPendingAction[];
+}
+
+// ── AI Command (full lifecycle: suggestion → decision → execution → impact) ──
+export type AiCommandStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "executing"
+  | "completed"
+  | "failed"
+  | "blocked";
+
+export type AiCommandRiskLevel = "low" | "medium" | "high";
+export type AiCommandOutcome = "resolved" | "partial" | "no_effect" | "made_worse";
+
+export interface CommandSuggestion {
+  command: string;
+  os_type: "linux" | "windows";
+  purpose: string;
+  risk_level: AiCommandRiskLevel;
+  expected_outcome: string;
+  is_read_only: boolean;
+}
+
+interface AiSnapshot {
+  metrics: { cpu_usage?: number; ram_usage?: number; disk_usage?: number; collected_at?: string };
+  log_tail: { timestamp: string; level: string; message: string }[];
+  open_incidents_count: number;
+  timestamp: string;
+}
+
+export interface AiCommand {
+  _id: string;
+  analysis_id: string;
+  run_id: string;
+  batch_id: string | null;
+  source_type: "incident" | "anomaly";
+  source_id: string;
+  server_id: string;
+  server_hostname?: string;
+  command: string;
+  os_type: "linux" | "windows";
+  purpose: string;
+  risk_level: AiCommandRiskLevel;
+  expected_outcome: string;
+  is_read_only: boolean;
+  status: AiCommandStatus;
+  decided_at: string | null;
+  decided_by: string | null;
+  stdout: string | null;
+  stderr: string | null;
+  exit_code: number | null;
+  duration_ms: number | null;
+  executed_at: string | null;
+  pre_snapshot: AiSnapshot | null;
+  post_snapshot: AiSnapshot | null;
+  impact_analysis_id: string | null;
+  impact_verdict: AiCommandOutcome | null;
+  impact_summary: string | null;
+  error: string | null;
+  blocked_by_guardrail: string | null;
+  retry_of: string | null;
+  created_at: string;
+}
+
+export interface AiCommandListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  results: AiCommand[];
+}
+
+// ── AI Analysis (unified — all types) ────────────────────────────────────────
+export type AiAnalysisType =
+  | "incident_triage"
+  | "anomaly_triage"
+  | "server_overview"
+  | "script_execution_review"
+  | "command_impact";
+
+export interface AiAnalysis {
+  _id: string;
+  run_id: string;
+  analysis_type: AiAnalysisType;
+  source_type: string;
+  source_id: string;
+  server_id: string;
+  summary: string;
+  markdown: string;
+  confidence: number;
+  structured: Record<string, unknown>;
+  anchored_at: string;
+  window_minutes: number;
+  llm_provider: string;
+  llm_model: string;
+  created_at: string;
 }
 
 export interface AnomalyStats {

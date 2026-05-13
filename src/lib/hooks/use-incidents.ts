@@ -20,6 +20,10 @@ export function useIncident(id: string) {
     queryKey: ["incidents", id],
     queryFn: () => incidentsApi.getById(id),
     enabled: !!id,
+    // Poll every 3s while analysis is running so the page reflects
+    // completion without requiring a manual refresh.
+    refetchInterval: (query) =>
+      query.state.data?.ai_analysis_in_progress ? 3_000 : false,
   });
 }
 
@@ -60,15 +64,29 @@ export function useAiAnalysis() {
   return useMutation({
     mutationFn: (incidentId: string) =>
       incidentsApi.triggerAiAnalysis(incidentId),
-    onSuccess: (data, incidentId) => {
-      // Directly update the cached incident with the returned analysis
-      // so the UI shows it immediately without waiting for a refetch
+    onMutate: (incidentId) => {
       qc.setQueryData(
         ["incidents", incidentId],
         (old: import("@/lib/types").IncidentResponse | undefined) =>
-          old ? { ...old, ai_analysis: data.ai_analysis } : old
+          old ? { ...old, ai_analysis_in_progress: true } : old
+      );
+    },
+    onSuccess: (data, incidentId) => {
+      qc.setQueryData(
+        ["incidents", incidentId],
+        (old: import("@/lib/types").IncidentResponse | undefined) =>
+          old
+            ? {
+                ...old,
+                ai_analysis: data.ai_analysis,
+                ai_analysis_latest_id: data.analysis_id,
+                ai_manual_commands: data.manual_commands ?? [],
+                ai_analysis_in_progress: false,
+              }
+            : old
       );
       qc.invalidateQueries({ queryKey: ["incidents"] });
+      qc.invalidateQueries({ queryKey: ["ai-commands"] });
     },
   });
 }
