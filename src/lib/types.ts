@@ -58,6 +58,7 @@ export interface DetectionConfig {
   anomaly_dedup_window_hours?: number;    // 0.25–24, default 2h
   anomaly_suppression_ttl_hours?: number; // 1–168, default 24h
   anomaly_auto_promote?: boolean;         // default false — promote high-confidence anomalies automatically
+  script_review_enabled?: boolean;        // default true — Phase 28.4 AI review after every L1/L2 remediation
 }
 
 export interface ServerCreate {
@@ -87,9 +88,15 @@ export interface ServerUpdate {
   windows_event_ids?: number[] | null;
   windows_event_ids_exclude?: number[] | null;
   ai_autonomy_level?: "read_only" | "suggest";
+  // Phase 28.5 — per-server rule/script library mode
+  rule_library_mode?: LibraryMode;
+  script_library_mode?: LibraryMode;
   credential?: Partial<CredentialCreate>;
   current_secret: string;     // REQUIRED — security challenge
 }
+
+// Phase 28.5 — 3-tier per-server library selector
+export type LibraryMode = "global" | "server" | "both";
 
 export interface ServerDelete {
   current_secret: string;
@@ -128,6 +135,25 @@ export interface ServerResponse {
   windows_event_ids_exclude?: number[] | null;
   // AI agent autonomy policy
   ai_autonomy_level?: "read_only" | "suggest";
+  // Phase 28.5 — per-server rule/script library mode (default global)
+  rule_library_mode?: LibraryMode;
+  script_library_mode?: LibraryMode;
+  // AI server-overview state (Phase 28.2)
+  ai_analysis_in_progress?: boolean | null;
+  ai_analysis_latest_id?: string | null;
+  ai_analysis_count?: number;
+}
+
+// Manual command shape — used by incident triage, anomaly triage, and server overview.
+// The incident/anomaly outputs use only the first 3 fields; server overview adds the rest.
+export interface AiManualCommand {
+  command: string;
+  purpose: string;
+  note?: string;
+  expected_output?: string;
+  steps?: string[];
+  risk_level?: "low" | "medium" | "high";
+  os_type?: "linux" | "windows";
 }
 
 // ── Metrics ─────────────────────────────────────────────────
@@ -146,6 +172,8 @@ export interface IncidentFilters {
   severity?: SeverityLevel;
   status?: IncidentStatus;
   search?: string;
+  from_date?: string;   // ISO UTC datetime
+  to_date?: string;     // ISO UTC datetime
   page?: number;
   page_size?: number;
 }
@@ -155,6 +183,20 @@ export interface IncidentListResponse {
   page: number;
   page_size: number;
   results: IncidentResponse[];
+}
+
+// Phase 28.4 — denormalised latest automation run on the incident detail response.
+export interface LatestRemediation {
+  automation_log_id: string;
+  script_id?: string | null;
+  script_name?: string | null;
+  status?: "success" | "failed" | null;
+  executed_at?: string | null;
+  output?: string | null;
+  error?: string | null;
+  ai_review_id?: string | null;
+  ai_review_verdict?: ScriptReviewVerdict | null;
+  ai_review_summary?: string | null;
 }
 
 export interface IncidentResponse {
@@ -174,12 +216,28 @@ export interface IncidentResponse {
   ai_analysis_latest_id?: string | null;
   ai_analysis_count?: number;
   ai_analysis_in_progress?: boolean;
-  ai_manual_commands?: { command: string; purpose: string; note: string }[] | null;
-  automation_skipped_reason?: "script_disabled" | "script_missing" | "recurrence_detected" | null;
+  ai_manual_commands?: AiManualCommand[] | null;
+  // Phase 28.4 — populated when an AI suggestion of type
+  // `suggest_manual_remediation` was approved by an operator.
+  ai_manual_commands_reason?: string | null;
+  // Phase 28.5.2 — checklist produced by the post-remediation review's
+  // `suggest_manual_remediation` action. Stored in its own field so the
+  // original triage commands above stay intact. `_meta.automation_log_id`
+  // links back to the remediation run that produced these commands.
+  ai_remediation_manual_commands?: AiManualCommand[] | null;
+  ai_remediation_manual_commands_meta?: {
+    reason?: string | null;
+    automation_log_id?: string | null;
+    created_at?: string | null;
+  } | null;
+  automation_skipped_reason?: "script_disabled" | "script_disabled_for_server" | "script_missing" | "recurrence_detected" | null;
   automation_failure_reason?: "remediation_exhausted" | "permission_denied" | "execution_failed" | "unsafe_placeholder" | null;
   remediation_attempts?: number;
   last_remediation_at?: string | null;
   verification_until?: string | null;
+  // Phase 28.4 — most recent automation_logs row + its AI review verdict.
+  // Populated only on the single-incident GET, not list endpoints.
+  latest_remediation?: LatestRemediation | null;
 }
 
 export interface RecentIncident {
@@ -236,7 +294,7 @@ export interface LogObservation {
   ai_analysis?: string | null;
   ai_analyzed_at?: string | null;
   ai_promotion_recommendation?: "promote_to_incident" | "dismiss" | "monitor" | null;
-  ai_manual_commands?: { command: string; purpose: string; note: string }[] | null;
+  ai_manual_commands?: AiManualCommand[] | null;
   ai_analysis_latest_id?: string | null;
   ai_analysis_count?: number;
   ai_analysis_in_progress?: boolean;
@@ -249,6 +307,8 @@ export interface AnomalyFilters {
   status?: LogObservationStatus | "all";
   severity?: AnomalySeverity | "all";
   type?: AnomalyType | "all";
+  from_date?: string;
+  to_date?: string;
   page?: number;
   page_size?: number;
 }
@@ -265,13 +325,28 @@ export type AiActionStatus = "pending" | "approved" | "rejected";
 export type AiActionType =
   | "dismiss_anomaly"
   | "promote_anomaly"
-  | "mark_incident_false_positive";
+  | "mark_incident_false_positive"
+  // Phase 28.4 — script-execution-review suggestion actions
+  | "disable_script_for_server"
+  | "disable_rule_for_server"
+  | "suggest_manual_remediation"
+  // Phase 28.5 — per-server library actions
+  | "create_server_rule"
+  | "create_server_script"
+  | "swap_remediation_script";
 
 export interface AiPendingAction {
   _id: string;
   action_type: AiActionType;
-  payload: Record<string, string>;
+  // Payload shape varies by action_type — some carry nested objects (e.g.
+  // `manual_commands` for `suggest_manual_remediation`) so we use `unknown`
+  // and let the renderer narrow at the use site.
+  payload: Record<string, unknown>;
   run_id: string;
+  source_type?: "incident" | "anomaly" | "automation_log" | "server" | "";
+  source_id?: string;
+  server_id?: string;
+  server_hostname?: string;
   status: AiActionStatus;
   created_at: string;
   decided_at: string | null;
@@ -342,6 +417,7 @@ export interface AiCommand {
   post_snapshot: AiSnapshot | null;
   impact_analysis_id: string | null;
   impact_verdict: AiCommandOutcome | null;
+  impact_addressed_root_cause?: "yes" | "partial" | "no" | "unknown" | null;
   impact_summary: string | null;
   error: string | null;
   blocked_by_guardrail: string | null;
@@ -371,6 +447,7 @@ export interface AiAnalysis {
   source_type: string;
   source_id: string;
   server_id: string;
+  server_hostname?: string;
   summary: string;
   markdown: string;
   confidence: number;
@@ -380,6 +457,13 @@ export interface AiAnalysis {
   llm_provider: string;
   llm_model: string;
   created_at: string;
+}
+
+export interface AiAnalysisListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  results: AiAnalysis[];
 }
 
 export interface AnomalyStats {
@@ -394,6 +478,7 @@ export interface DashboardSummary {
   servers: {
     total: number;
     online: number;
+    reachable: number;
     offline: number;
   };
   incidents: {
@@ -458,6 +543,9 @@ export interface RuleFilters {
   os_type?: RuleOSType;
   enabled?: boolean;
   search?: string;
+  // Phase 28.5 — scope filter (global vs server-scoped)
+  owner_type?: "global" | "server";
+  owner_id?: string;
   page?: number;
   page_size?: number;
 }
@@ -480,6 +568,10 @@ export interface DetectionRule {
   os_type: RuleOSType;
   tags: string[];
   remediation_script_id?: string;
+  remediation_script_id_windows?: string | null;
+  // Phase 28.5 — library scoping (default global)
+  owner_type?: "global" | "server";
+  owner_id?: string | null;
   created_at: string;
 }
 
@@ -492,6 +584,11 @@ export interface DetectionRuleCreate {
   enabled: boolean;
   os_type: RuleOSType;
   tags: string[];
+  remediation_script_id?: string | null;
+  remediation_script_id_windows?: string | null;
+  // Phase 28.5 — defaults to "global" / null when omitted
+  owner_type?: "global" | "server";
+  owner_id?: string | null;
 }
 
 // ── Scripts ──────────────────────────────────────────────────
@@ -504,6 +601,9 @@ export interface ScriptResponse {
   category?: "diagnostic" | "containment" | "recovery";
   enabled: boolean;
   content: string;
+  // Phase 28.5 — library scoping (default global)
+  owner_type?: "global" | "server";
+  owner_id?: string | null;
   created_at: string;
 }
 
@@ -515,11 +615,17 @@ export interface ScriptCreate {
   category?: string;
   enabled?: boolean;
   content: string;
+  // Phase 28.5 — defaults to "global" / null when omitted
+  owner_type?: "global" | "server";
+  owner_id?: string | null;
 }
 
 export interface ScriptFilters {
   language?: ScriptLanguage;
   target_os?: string;
+  // Phase 28.5 — scope filter
+  owner_type?: "global" | "server";
+  owner_id?: string;
   search?: string;
   page?: number;
   page_size?: number;
@@ -533,6 +639,18 @@ export interface ScriptListResponse {
 }
 
 // ── Automation / Remediation history ─────────────────────────
+
+// Phase 28.4 — verdict values written by the AI script-execution review.
+// `review_failed` = the review itself errored out (e.g. LLM unavailable).
+// `in_progress` is set by the manual-analyze endpoint while the task runs.
+export type ScriptReviewVerdict =
+  | "resolved"
+  | "partial"
+  | "no_effect"
+  | "made_worse"
+  | "review_failed"
+  | "in_progress";
+
 export interface RemediationRun {
   _id: string;
   incident_id: string;
@@ -544,6 +662,19 @@ export interface RemediationRun {
   status: "success" | "failed";
   output: string | null;
   error: string | null;
+  // Phase 28.4 — populated by the post-execution AI review.
+  ai_review_id?: string | null;
+  ai_review_verdict?: ScriptReviewVerdict | null;
+  ai_review_summary?: string | null;
+  // Phase 28.5.2 — denormalised copy of the manual checklist when an
+  // operator approved a `suggest_manual_remediation` action on this run.
+  ai_remediation_manual_commands?: AiManualCommand[] | null;
+  ai_remediation_manual_commands_meta?: {
+    reason?: string | null;
+    automation_log_id?: string | null;
+    incident_id?: string | null;
+    created_at?: string | null;
+  } | null;
 }
 
 export interface RemediationHistoryFilters {
@@ -552,6 +683,8 @@ export interface RemediationHistoryFilters {
   status?: "success" | "failed";
   server_id?: string;
   script_id?: string;
+  from_date?: string;
+  to_date?: string;
 }
 
 export interface RemediationHistoryStats {

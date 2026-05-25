@@ -10,6 +10,7 @@ import {
   Bot,
   CalendarDays,
   KeyRound,
+  Library,
   Network,
   RotateCcw,
   Save,
@@ -214,11 +215,26 @@ const DETECTION_FIELDS: DetectionField[] = [
     lowerTip:
       "Noisy servers still being tuned — keep off until keyword filtering and dedup settings are dialled in to avoid incident spam.",
   },
+  {
+    key: "script_review_enabled",
+    label: "AI Script Execution Review",
+    type: "boolean",
+    default: true,
+    summary:
+      "Run an AI review after every L1/L2 remediation script execution on this server. The review reads pre/post snapshots + stdout/stderr and judges whether the fix actually addressed the root cause (resolved / partial / no_effect / made_worse). Verdict appears on the Remediation History page and the incident detail page.",
+    detail:
+      "Adds ~10–20 s and one LLM call per automated fix. Independent of the AI autonomy level — works on `read_only` servers too. When the server is in `suggest` mode AND the verdict is no_effect/made_worse/partial, the AI may also queue suggestion actions (disable this script for this server, disable the rule, propose manual commands) into the AI Actions inbox for operator approval. Disable on cost-sensitive servers; operators can still manually trigger a review per-run from the History page.",
+    raiseTip:
+      "Most servers — the verdict signal is the fastest indicator that a script silently failed to fix the underlying problem.",
+    lowerTip:
+      "Cost-sensitive servers or extremely chatty boxes where every L1 fix burning a token spend is wasteful — operators retain on-demand manual analysis.",
+  },
 ];
 
 const DETECTION_DEFAULTS: Record<string, number | boolean> = {
   ...Object.fromEntries(DETECTION_FIELDS.map((f) => [f.key, f.default])),
   anomaly_auto_promote: false,
+  script_review_enabled: true,
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -255,6 +271,9 @@ export default function EditServerPage({
   const [currentSecret, setCurrentSecret] = useState("");
 
   const [aiAutonomyLevel, setAiAutonomyLevel] = useState<"read_only" | "suggest">("read_only");
+  // Phase 28.5 — per-server library mode selectors
+  const [ruleLibraryMode, setRuleLibraryMode] = useState<"global" | "server" | "both">("global");
+  const [scriptLibraryMode, setScriptLibraryMode] = useState<"global" | "server" | "both">("global");
   const [warmupMinutes, setWarmupMinutes] = useState(60);
   const [error, setError] = useState<string | null>(null);
 
@@ -275,6 +294,8 @@ export default function EditServerPage({
     setWinEventAllow((server.windows_event_ids ?? []).join(", "));
     setWinEventExclude((server.windows_event_ids_exclude ?? []).join(", "));
     setAiAutonomyLevel(server.ai_autonomy_level ?? "read_only");
+    setRuleLibraryMode(server.rule_library_mode ?? "global");
+    setScriptLibraryMode(server.script_library_mode ?? "global");
   }, [server]);
 
   const updateServer = useUpdateServer();
@@ -324,6 +345,9 @@ export default function EditServerPage({
           windows_event_ids: parseIds(winEventAllow),
           windows_event_ids_exclude: parseIds(winEventExclude),
           ai_autonomy_level: aiAutonomyLevel,
+          // Phase 28.5 — per-server library mode
+          rule_library_mode: ruleLibraryMode,
+          script_library_mode: scriptLibraryMode,
           credential: changeCredential
             ? { username: newUsername || undefined, secret: newSecret }
             : undefined,
@@ -821,6 +845,37 @@ export default function EditServerPage({
           </div>
         </Section>
 
+        {/* ── Section 7: Library Mode (Phase 28.5) ─────────────────────────── */}
+        <Section
+          icon={<Library className="h-5 w-5" />}
+          title="Rule & Script Libraries"
+          description="Pick which slice of the rule and script library this server uses. Switching modes is non-destructive — private rules/scripts stay in the database; they just become inactive in Global-only mode and reactivate when you switch back."
+        >
+          <div className="space-y-4">
+            <LibraryModeSelect
+              label="Rule library"
+              value={ruleLibraryMode}
+              onChange={setRuleLibraryMode}
+            />
+            <LibraryModeSelect
+              label="Script library"
+              value={scriptLibraryMode}
+              onChange={setScriptLibraryMode}
+            />
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Manage this server&apos;s private rules and scripts from the{" "}
+              <Link href={`/servers/${id}#rules`} className="text-primary hover:underline font-medium">
+                Rules
+              </Link>{" "}
+              and{" "}
+              <Link href={`/servers/${id}#scripts`} className="text-primary hover:underline font-medium">
+                Scripts
+              </Link>{" "}
+              tabs on the server detail page.
+            </p>
+          </div>
+        </Section>
+
         {/* ── Section 8: Credentials ───────────────────────────────────────── */}
         <Section
           icon={<KeyRound className="h-5 w-5" />}
@@ -986,6 +1041,52 @@ function Field({
         )}
       </div>
       {children}
+    </div>
+  );
+}
+
+// Phase 28.5 — 3-tier library mode segmented control. Same visual language as
+// the AI Autonomy selector so the edit page reads consistently.
+function LibraryModeSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: "global" | "server" | "both";
+  onChange: (v: "global" | "server" | "both") => void;
+}) {
+  const OPTIONS = [
+    { value: "global" as const, label: "Global only", description: "Curated 55 rules / 23 scripts (default)" },
+    { value: "server" as const, label: "Server-only", description: "Only this server's private library" },
+    { value: "both" as const,   label: "Both",        description: "Global library + this server's private additions" },
+  ];
+  return (
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+        {label}
+      </label>
+      <div className="flex rounded-xl overflow-hidden border border-border">
+        {OPTIONS.map((opt, i) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "flex-1 px-3 py-3 text-left transition-colors",
+              i === 0 ? "" : "border-l border-border",
+              value === opt.value
+                ? "bg-primary/10 text-foreground"
+                : "bg-card/50 text-muted-foreground hover:bg-muted/50",
+            )}
+          >
+            <p className={cn("text-xs font-bold", value === opt.value ? "text-primary" : "")}>
+              {opt.label}
+            </p>
+            <p className="text-[11px] mt-0.5 leading-tight">{opt.description}</p>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

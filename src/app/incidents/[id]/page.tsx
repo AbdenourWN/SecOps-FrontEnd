@@ -12,6 +12,10 @@ import {
   useRejectCommands,
 } from "@/lib/hooks/use-ai-actions";
 import { CommandDetailModal } from "@/components/shared/command-detail-modal";
+import { AiActionsForSource } from "@/components/shared/ai-actions-for-source";
+import { ManualCommandCard } from "@/components/shared/manual-command-card";
+import { ImpactReviewBlock } from "@/components/shared/impact-review-block";
+import { useAnalyzeRemediationRun } from "@/lib/hooks/use-scripts";
 import { TypingCursor } from "@/components/shared/typing-cursor";
 import { SeverityBadge, timeAgo } from "@/components/shared/badges";
 import { cn } from "@/lib/utils";
@@ -48,42 +52,13 @@ import {
 } from "@/components/ui/select";
 import { use, useState } from "react";
 import { useAiAnalysisStream } from "@/lib/hooks/use-ai-stream";
+import { useStickToBottom } from "@/lib/hooks/use-stick-to-bottom";
 import { toast } from "sonner";
 import Link from "next/link";
 import type { IncidentStatus } from "@/lib/types";
 
-function ManualCommandCard({ command, purpose, note }: { command: string; purpose: string; note: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(command).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-  return (
-    <div className="rounded-lg border border-violet-500/15 bg-background/50 p-3 space-y-2">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-0.5">
-          <p className="text-xs text-muted-foreground">{purpose}</p>
-          <code className="block text-xs font-mono text-violet-300 break-all leading-relaxed">{command}</code>
-        </div>
-        <button
-          onClick={handleCopy}
-          className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors mt-0.5"
-        >
-          {copied ? (
-            <><CheckCircle2 className="h-3 w-3 text-emerald-400" /><span className="text-emerald-400">Copied</span></>
-          ) : (
-            <><ClipboardCopy className="h-3 w-3" /> Copy</>
-          )}
-        </button>
-      </div>
-      {note && (
-        <p className="text-[10px] text-violet-400/70 font-medium">⚠ {note}</p>
-      )}
-    </div>
-  );
-}
+// ManualCommandCard now lives in @/components/shared/manual-command-card and is
+// shared with the anomaly detail page + the AI Overview tab on the server page.
 
 const RISK_STYLES: Record<string, string> = {
   low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
@@ -149,24 +124,45 @@ function CommandCard({
             <p className="text-xs text-muted-foreground mt-0.5">{cmd.purpose}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {canAct ? (
-            <>
-              <button onClick={onApprove} disabled={approving}
-                className="text-[11px] font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50">
-                Approve
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          {/* Timestamp — show decided_at prominently for any decided row so
+              you can spot the most-recent decision. Pending rows fall back
+              to created_at. */}
+          <div className="text-right leading-tight">
+            {cmd.decided_at ? (
+              <>
+                <p className="text-[10px] font-semibold text-foreground">
+                  {new Date(cmd.decided_at).toLocaleString()}
+                </p>
+                <p className="text-[9px] text-muted-foreground/70">
+                  decided · created {new Date(cmd.created_at).toLocaleString()}
+                </p>
+              </>
+            ) : (
+              <p className="text-[10px] text-muted-foreground">
+                {new Date(cmd.created_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {canAct ? (
+              <>
+                <button onClick={onApprove} disabled={approving}
+                  className="text-[11px] font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50">
+                  Approve
+                </button>
+                <button onClick={onReject} disabled={rejecting}
+                  className="text-[11px] font-semibold px-2 py-1 rounded bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                  Dismiss
+                </button>
+              </>
+            ) : (
+              <button onClick={onViewDetails}
+                className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                <Eye className="h-3 w-3" /> Details
               </button>
-              <button onClick={onReject} disabled={rejecting}
-                className="text-[11px] font-semibold px-2 py-1 rounded bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                Dismiss
-              </button>
-            </>
-          ) : (
-            <button onClick={onViewDetails}
-              className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
-              <Eye className="h-3 w-3" /> Details
-            </button>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -201,7 +197,19 @@ export default function IncidentDetailPage({
   const updateStatus = useUpdateIncidentStatus();
   const aiAnalysis = useAiAnalysis();
   const analysisRunning = aiAnalysis.isPending || !!incident?.ai_analysis_in_progress;
-  const { streamedMarkdown, gapDetected } = useAiAnalysisStream("incident", id, incident?.server_id, analysisRunning);
+  const { streamedMarkdown, gapDetected, streamCompleted } = useAiAnalysisStream("incident", id, incident?.server_id, analysisRunning);
+  const analysisContent = (analysisRunning && streamedMarkdown) ? streamedMarkdown : (incident?.ai_analysis ?? "");
+  const { scrollRef: analysisScrollRef, onScroll: onAnalysisScroll } = useStickToBottom<HTMLDivElement>(analysisContent);
+  // Empty-output detection: the agent finished (or just-ended) and the platform
+  // saved an analysis row whose markdown is just the "## AI Triage Analysis"
+  // header + footer with no body. This happens when the LLM call fails before
+  // producing any tokens — we surface a clear retry message instead of an empty box.
+  const isEmptyAnalysis = (md: string | null | undefined): boolean => {
+    if (!md) return false;
+    const body = md.replace(/^## AI Triage Analysis\s*/i, "").replace(/---[\s\S]*$/, "").trim();
+    return body.length === 0;
+  };
+  const justEndedEmpty = streamCompleted && !streamedMarkdown && isEmptyAnalysis(incident?.ai_analysis);
   const [cmdPage, setCmdPage] = useState(1);
   const { data: commandsData } = useAiCommandsForSource("incident", id, incident?.server_id, cmdPage);
   const approveCommands = useApproveCommands();
@@ -380,6 +388,14 @@ export default function IncidentDetailPage({
               <p className="text-sm leading-relaxed">{incident.description}</p>
             </div>
 
+            {/* Auto-fix Review — Phase 28.4. Only shown when a remediation actually ran for this incident. */}
+            {incident.latest_remediation && (
+              <AutoFixReviewCard
+                incidentId={incident._id}
+                latest={incident.latest_remediation}
+              />
+            )}
+
             {/* Context */}
             {incident.context && Object.keys(incident.context).length > 0 && (
               <div className="rounded-xl border border-border bg-card p-5">
@@ -449,9 +465,26 @@ export default function IncidentDetailPage({
                 </div>
               )}
 
+              {/* Agent finished with no output — clearer than rendering an empty markdown block */}
+              {justEndedEmpty && !analysisRunning && (
+                <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-400" />
+                  <div className="text-xs text-amber-300 space-y-0.5">
+                    <p className="font-semibold">Analysis ended with no output.</p>
+                    <p className="text-amber-400/70 leading-relaxed">
+                      The AI agent finished without producing any content — most likely the LLM call failed (rate limit, bad credentials, or model unavailable).
+                      Check the backend logs and click <span className="font-medium text-amber-300">Re-analyze</span> to retry.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Analysis content — streaming while running, saved when done */}
-              {(analysisRunning && streamedMarkdown) || incident.ai_analysis ? (
-                <div className={cn(
+              {!justEndedEmpty && ((analysisRunning && streamedMarkdown) || incident.ai_analysis) ? (
+                <div
+                  ref={analysisScrollRef}
+                  onScroll={onAnalysisScroll}
+                  className={cn(
                   "max-h-125 overflow-y-auto rounded-lg bg-slate-50 dark:bg-muted/20 border p-5",
                   analysisRunning
                     ? "border-primary/40 shadow-[0_0_0_1px_rgba(var(--primary)/0.15)] animate-pulse-border"
@@ -494,13 +527,17 @@ export default function IncidentDetailPage({
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   AI agent is gathering evidence, please wait…
                 </div>
-              ) : (
+              ) : justEndedEmpty ? null /* banner above already explains the empty result */ : (
                 <p className="text-sm text-muted-foreground">
                   No AI analysis available. Click &quot;Run Analysis&quot; to
                   investigate this incident with the AI triage agent.
                 </p>
               )}
             </div>
+
+            {/* AI Status-Change Suggestions (only present when server is suggest-level
+                and the agent has proposed dismiss/promote/mark-false-positive actions) */}
+            <AiActionsForSource sourceType="incident" sourceId={id} serverId={incident.server_id} />
 
             {/* Manual Commands */}
             {incident.ai_manual_commands && incident.ai_manual_commands.length > 0 && (
@@ -520,6 +557,50 @@ export default function IncidentDetailPage({
                 </p>
                 <div className="space-y-2">
                   {incident.ai_manual_commands.map((mc, i) => (
+                    <ManualCommandCard key={i} command={mc.command} purpose={mc.purpose} note={mc.note} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Phase 28.5.2 — Manual Commands from the post-remediation review.
+                Kept distinct from the triage-produced `ai_manual_commands`
+                above so neither overwrites the other. The amber accent
+                signals "the automation didn't fix this — here's what the
+                AI suggests doing by hand." Links back to the remediation
+                run that produced these via the meta sub-doc. */}
+            {incident.ai_remediation_manual_commands && incident.ai_remediation_manual_commands.length > 0 && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                      Post-Remediation Manual Checklist
+                    </h3>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      AI-suggested after auto-fix
+                    </span>
+                  </div>
+                  {incident.ai_remediation_manual_commands_meta?.automation_log_id && (
+                    <Link
+                      href={`/automation/history/${incident.ai_remediation_manual_commands_meta.automation_log_id}`}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300 hover:text-amber-200 transition-colors"
+                    >
+                      View remediation run
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  The post-execution AI review concluded the auto-fix didn&apos;t address the root cause and proposed this manual checklist instead. The triage commands above are unchanged — these are an <span className="font-medium text-amber-300">additional</span> set tied to the most recent remediation attempt.
+                </p>
+                {incident.ai_remediation_manual_commands_meta?.reason && (
+                  <p className="text-[11px] text-amber-200/80 italic border-l-2 border-amber-500/40 pl-2.5">
+                    {incident.ai_remediation_manual_commands_meta.reason}
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {incident.ai_remediation_manual_commands.map((mc, i) => (
                     <ManualCommandCard key={i} command={mc.command} purpose={mc.purpose} note={mc.note} />
                   ))}
                 </div>
@@ -691,5 +772,127 @@ export default function IncidentDetailPage({
         </div>
       </div>
     </AppShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 28.4 — Auto-fix Review card
+//
+// Shown when the incident's latest_remediation field is populated (the AI
+// post-execution review for the most recent automation run on this incident).
+// Renders the shared `ImpactReviewBlock` plus a "Run Analysis / Re-analyze"
+// button so the operator can manually trigger or refresh the review if the
+// server's `script_review_enabled` toggle was off at execution time.
+// ─────────────────────────────────────────────────────────────────────────────
+function AutoFixReviewCard({
+  latest,
+}: {
+  incidentId: string;
+  latest: NonNullable<
+    import("@/lib/types").IncidentResponse["latest_remediation"]
+  >;
+}) {
+  const analyze = useAnalyzeRemediationRun();
+  const reviewInProgress =
+    latest.ai_review_verdict === "in_progress" || analyze.isPending;
+  const hasReview =
+    !!latest.ai_review_id ||
+    (latest.ai_review_verdict != null &&
+      latest.ai_review_verdict !== "review_failed" &&
+      latest.ai_review_verdict !== "in_progress");
+  const reviewFailed = latest.ai_review_verdict === "review_failed";
+
+  const handleAnalyze = async () => {
+    try {
+      await analyze.mutateAsync(latest.automation_log_id);
+      toast.success("AI review started — usually 10–20s");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5 space-y-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+          <Brain className="h-3.5 w-3.5 text-violet-400" />
+          Auto-fix Review
+          {latest.script_name && (
+            <span className="text-muted-foreground/60 normal-case font-normal">
+              · {latest.script_name}
+            </span>
+          )}
+        </h3>
+        <button
+          onClick={handleAnalyze}
+          disabled={reviewInProgress}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors",
+            "bg-primary text-primary-foreground hover:bg-primary/90",
+            "disabled:opacity-60 disabled:cursor-not-allowed",
+          )}
+        >
+          {reviewInProgress ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Analyzing…
+            </>
+          ) : hasReview || reviewFailed ? (
+            <>
+              <RefreshCw className="h-3 w-3" />
+              Re-analyze
+            </>
+          ) : (
+            <>
+              <Brain className="h-3 w-3" />
+              Run Analysis
+            </>
+          )}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold",
+            latest.status === "success"
+              ? "bg-success/15 text-success"
+              : "bg-danger/15 text-danger",
+          )}
+        >
+          {latest.status === "success" ? "SUCCESS" : "FAILED"}
+        </span>
+        {latest.executed_at && (
+          <span className="font-mono">
+            {new Date(latest.executed_at).toLocaleString()}
+          </span>
+        )}
+        <Link
+          href="/automation/history"
+          className="ml-auto inline-flex items-center gap-1 text-primary hover:underline"
+        >
+          Full history
+          <ExternalLink className="h-3 w-3" />
+        </Link>
+      </div>
+
+      {!hasReview && !reviewFailed && !reviewInProgress && (
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          No AI review yet for this auto-fix run. Click{" "}
+          <span className="font-semibold text-foreground">Run Analysis</span> to
+          have the AI compare pre/post-execution state and judge whether the
+          script addressed the root cause.
+        </p>
+      )}
+
+      {(hasReview || reviewFailed || reviewInProgress) && (
+        <ImpactReviewBlock
+          analysisId={latest.ai_review_id ?? undefined}
+          verdict={latest.ai_review_verdict}
+          summary={latest.ai_review_summary}
+          pending={reviewInProgress && !latest.ai_review_id}
+        />
+      )}
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -6,9 +6,10 @@ import { AppShell } from "@/components/layout/app-shell";
 import {
   useRemediationHistory,
   useRemediationHistoryStats,
+  useAnalyzeRemediationRun,
+  useScripts,
 } from "@/lib/hooks/use-scripts";
 import { useServers } from "@/lib/hooks/use-servers";
-import { useScripts } from "@/lib/hooks/use-scripts";
 import { cn, timeAgo } from "@/lib/utils";
 import {
   Bot,
@@ -24,7 +25,15 @@ import {
   AlertTriangle,
   ArrowLeft,
   Terminal,
+  Brain,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  ImpactReviewBlock,
+  VerdictPill,
+} from "@/components/shared/impact-review-block";
 import type { RemediationRun } from "@/lib/types";
 import {
   Select,
@@ -33,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
 
 const PAGE_SIZE = 25;
 
@@ -42,8 +52,8 @@ export default function AutomationHistoryPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [serverFilter, setServerFilter] = useState<string>("all");
   const [scriptFilter, setScriptFilter] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange>({});
   const [page, setPage] = useState(0);
-  const [selectedRun, setSelectedRun] = useState<RemediationRun | null>(null);
 
   const { data: serversData } = useServers({ page_size: 100 });
   const servers = serversData?.results ?? [];
@@ -55,8 +65,10 @@ export default function AutomationHistoryPage() {
       status: statusFilter === "all" ? undefined : statusFilter,
       server_id: serverFilter === "all" ? undefined : serverFilter,
       script_id: scriptFilter === "all" ? undefined : scriptFilter,
+      from_date: dateRange.from ?? undefined,
+      to_date: dateRange.to ?? undefined,
     }),
-    [statusFilter, serverFilter, scriptFilter]
+    [statusFilter, serverFilter, scriptFilter, dateRange]
   );
 
   const { data: stats } = useRemediationHistoryStats(filters);
@@ -69,12 +81,18 @@ export default function AutomationHistoryPage() {
   const total = stats?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilters =
-    statusFilter !== "all" || serverFilter !== "all" || scriptFilter !== "all";
+    statusFilter !== "all" || serverFilter !== "all" || scriptFilter !== "all" || !!(dateRange.from || dateRange.to);
 
   const resetFilters = () => {
     setStatusFilter("all");
     setServerFilter("all");
     setScriptFilter("all");
+    setDateRange({});
+    setPage(0);
+  };
+
+  const handleDateRange = (v: DateRange) => {
+    setDateRange(v);
     setPage(0);
   };
 
@@ -205,6 +223,12 @@ export default function AutomationHistoryPage() {
                 })),
               ]}
             />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Time range
+              </label>
+              <DateRangeFilter value={dateRange} onChange={handleDateRange} />
+            </div>
           </div>
         </div>
 
@@ -218,7 +242,7 @@ export default function AutomationHistoryPage() {
               </span>
             </h2>
             <span className="text-[10px] text-muted-foreground font-mono">
-              Newest first · auto-refresh 15s
+              Newest first Â· auto-refresh 15s
             </span>
           </div>
 
@@ -251,6 +275,7 @@ export default function AutomationHistoryPage() {
                     <th className="text-left px-5 py-3 w-35">Status</th>
                     <th className="text-left px-5 py-3">Playbook</th>
                     <th className="text-left px-5 py-3">Server</th>
+                    <th className="text-left px-5 py-3 w-40">AI Review</th>
                     <th className="text-left px-5 py-3 w-35">When</th>
                     <th className="text-left px-5 py-3 w-25">Actions</th>
                   </tr>
@@ -291,17 +316,31 @@ export default function AutomationHistoryPage() {
                         <td className="px-5 py-3 font-mono text-xs">
                           {run.server_hostname}
                         </td>
+                        <td className="px-5 py-3">
+                          {run.ai_review_verdict === "in_progress" ? (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-primary">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Analyzing
+                            </span>
+                          ) : run.ai_review_verdict ? (
+                            <VerdictPill verdict={run.ai_review_verdict} />
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground/70 font-mono">
+                              â€”
+                            </span>
+                          )}
+                        </td>
                         <td className="px-5 py-3 text-xs text-muted-foreground">
                           {timeAgo(run.executed_at)}
                         </td>
                         <td className="px-5 py-3">
-                          <button
-                            onClick={() => setSelectedRun(run)}
+                          <Link
+                            href={`/automation/history/${run._id}`}
                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-muted hover:bg-primary hover:text-primary-foreground text-[11px] font-semibold transition-colors cursor-pointer"
                           >
                             <FileText className="h-3 w-3" />
                             Details
-                          </button>
+                          </Link>
                         </td>
                       </tr>
                     );
@@ -317,8 +356,8 @@ export default function AutomationHistoryPage() {
               <p className="text-xs text-muted-foreground">
                 Page <span className="font-bold">{page + 1}</span> of{" "}
                 <span className="font-bold">{totalPages}</span>
-                <span className="mx-2">·</span>
-                Showing {page * PAGE_SIZE + 1}–
+                <span className="mx-2">Â·</span>
+                Showing {page * PAGE_SIZE + 1}â€“
                 {Math.min((page + 1) * PAGE_SIZE, total)} of{" "}
                 {total.toLocaleString()}
               </p>
@@ -345,20 +384,13 @@ export default function AutomationHistoryPage() {
         </div>
       </div>
 
-      {/* Detail modal */}
-      {selectedRun && (
-        <RunDetailModal
-          run={selectedRun}
-          onClose={() => setSelectedRun(null)}
-        />
-      )}
     </AppShell>
   );
 }
 
-// ─────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Sub-components
-// ─────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function StatCard({
   label,
@@ -438,136 +470,6 @@ function FilterSelect({
           ))}
         </SelectContent>
       </Select>
-    </div>
-  );
-}
-
-function RunDetailModal({
-  run,
-  onClose,
-}: {
-  run: RemediationRun;
-  onClose: () => void;
-}) {
-  const ok = run.status === "success";
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-card w-full max-w-2xl rounded-2xl border border-border shadow-2xl max-h-[85vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-border">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold",
-                    ok
-                      ? "bg-success/15 text-success"
-                      : "bg-danger/15 text-danger"
-                  )}
-                >
-                  {ok ? (
-                    <CheckCircle2 className="h-3 w-3" />
-                  ) : (
-                    <XCircle className="h-3 w-3" />
-                  )}
-                  {ok ? "SUCCESS" : "FAILED"}
-                </span>
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  {new Date(run.executed_at).toLocaleString()}
-                </span>
-              </div>
-              <h3 className="text-lg font-bold truncate">{run.script_name}</h3>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-muted transition-colors shrink-0"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          {/* Metadata grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <MetaField label="Server" value={run.server_hostname} mono />
-            <MetaField
-              label="Triggering Incident"
-              value={
-                run.incident_id ? (
-                  <Link
-                    href={`/incidents/${run.incident_id}`}
-                    className="text-primary hover:underline font-mono text-xs"
-                  >
-                    {run.incident_id.slice(-8)}
-                  </Link>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )
-              }
-            />
-          </div>
-
-          {/* Output */}
-          {run.output && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                Output
-              </p>
-              <pre className="bg-[#0f172a] text-green-400 p-4 rounded-xl text-xs font-mono overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
-                {run.output}
-              </pre>
-            </div>
-          )}
-
-          {/* Error */}
-          {run.error && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-danger mb-2">
-                Error
-              </p>
-              <pre className="bg-danger/5 border border-danger/30 text-danger p-4 rounded-xl text-xs font-mono overflow-x-auto max-h-60 overflow-y-auto whitespace-pre-wrap">
-                {run.error}
-              </pre>
-            </div>
-          )}
-
-          {!run.output && !run.error && (
-            <p className="text-sm text-muted-foreground italic text-center py-6">
-              No output or error captured for this run.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MetaField({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
-        {label}
-      </p>
-      <div className={cn("text-sm font-semibold", mono && "font-mono")}>
-        {value}
-      </div>
     </div>
   );
 }

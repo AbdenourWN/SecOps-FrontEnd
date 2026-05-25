@@ -2,10 +2,10 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { AlertTriangle, CheckCircle2, ExternalLink, RefreshCw, ShieldOff, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, RefreshCw, ShieldOff, XCircle } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useAiAnalysis, useRetryCommand } from "@/lib/hooks/use-ai-actions";
+import { useAiAnalysis, useAiCommand, useRetryCommand } from "@/lib/hooks/use-ai-actions";
 import type { AiCommand } from "@/lib/types";
 
 const RISK_STYLES: Record<string, string> = {
@@ -133,7 +133,7 @@ function StatusBanner({
 }
 
 export function CommandDetailModal({
-  cmd,
+  cmd: initialCmd,
   onClose,
   sourceHref,
   sourceLabel,
@@ -143,6 +143,13 @@ export function CommandDetailModal({
   sourceHref?: string;
   sourceLabel?: string;
 }) {
+  // Subscribe to live command data — the parent only passes a snapshot, so
+  // without this the impact analysis (written after execution finishes) never
+  // appears until the modal is closed and reopened. `useAiCommand` polls every
+  // 5s and invalidates on the `ai_actions` WS topic.
+  const { data: liveCmd } = useAiCommand(initialCmd._id);
+  const cmd = liveCmd ?? initialCmd;
+
   const { data: impact } = useAiAnalysis(cmd.impact_analysis_id);
   const retry = useRetryCommand();
 
@@ -304,9 +311,9 @@ export function CommandDetailModal({
           )}
 
           {/* AI Impact Analysis */}
-          {cmd.impact_analysis_id && (
+          {(cmd.impact_analysis_id || cmd.status === "completed") && (
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-wide">AI Impact Analysis</p>
                 {cmd.impact_verdict && (
                   <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", {
@@ -318,8 +325,23 @@ export function CommandDetailModal({
                     {cmd.impact_verdict.replace(/_/g, " ")}
                   </span>
                 )}
+                {cmd.impact_addressed_root_cause && (
+                  <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", {
+                    "bg-emerald-500/10 text-emerald-400 border-emerald-500/20": cmd.impact_addressed_root_cause === "yes",
+                    "bg-amber-500/10 text-amber-400 border-amber-500/20": cmd.impact_addressed_root_cause === "partial",
+                    "bg-red-500/10 text-red-400 border-red-500/20": cmd.impact_addressed_root_cause === "no",
+                    "bg-muted text-muted-foreground border-border": cmd.impact_addressed_root_cause === "unknown",
+                  })}>
+                    root cause: {cmd.impact_addressed_root_cause}
+                  </span>
+                )}
               </div>
-              {impact ? (
+              {!cmd.impact_analysis_id ? (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-primary" />
+                  <span>Analyzing impact… the AI is comparing before/after state. This usually takes 10-20s.</span>
+                </div>
+              ) : impact ? (
                 <div className="rounded-lg bg-muted/20 border border-border px-4 py-3 max-h-64 overflow-y-auto text-sm">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}

@@ -12,7 +12,7 @@ const cards = [
     icon: Server,
     getValue: (d: DashboardSummary | undefined) => d?.servers?.total ?? 0,
     getSub: (d: DashboardSummary | undefined) =>
-      `${d?.servers?.online ?? 0} Online • ${d?.servers?.offline ?? 0} Offline`,
+      `${d?.servers?.online ?? 0} Online • ${d?.servers?.reachable ?? 0} Reachable • ${d?.servers?.offline ?? 0} Offline`,
     accentColor: "text-primary",
     iconBg: "bg-primary/10",
   },
@@ -24,8 +24,9 @@ const cards = [
       if (!d || d.servers?.total === 0) return "0%";
       return `${(((d.servers?.online ?? 0) / (d.servers?.total ?? 1)) * 100).toFixed(1)}%`;
     },
+    // "Reachable" = TCP works but auth probe failed → counted as degraded, not healthy.
     getSub: (d: DashboardSummary | undefined) =>
-      `${d?.servers?.online ?? 0} Online • ${d?.servers?.offline ?? 0} Offline`,
+      `${d?.servers?.online ?? 0} Online • ${d?.servers?.reachable ?? 0} Reachable • ${d?.servers?.offline ?? 0} Offline`,
     accentColor: "text-success",
     iconBg: "bg-success/10",
   },

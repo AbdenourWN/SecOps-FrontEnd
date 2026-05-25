@@ -1,11 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Bot, Check, Eye, X, Clock, CheckCircle2, Terminal, XCircle, Loader2, ShieldAlert, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { Bot, Check, Eye, X, Clock, CheckCircle2, Terminal, XCircle, Loader2, ShieldAlert, ChevronLeft, ChevronRight, AlertTriangle, ExternalLink, Server } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CommandDetailModal } from "@/components/shared/command-detail-modal";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
+import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
 import { cn } from "@/lib/utils";
 import {
   useAiActions,
@@ -22,6 +30,14 @@ const ACTION_LABELS: Record<string, string> = {
   dismiss_anomaly: "Dismiss Anomaly",
   promote_anomaly: "Promote Anomaly → Incident",
   mark_incident_false_positive: "Mark Incident False Positive",
+  // Phase 28.4 — suggestion actions from the script execution review
+  disable_script_for_server: "Disable Script for This Server",
+  disable_rule_for_server: "Disable Rule for This Server",
+  suggest_manual_remediation: "Replace Auto-fix with Manual Checklist",
+  // Phase 28.5 — per-server library actions
+  create_server_rule: "Create Server-Scoped Rule",
+  create_server_script: "Create Server-Scoped Script",
+  swap_remediation_script: "Swap Remediation Script for This Server",
 };
 
 function StatusBadge({ status }: { status: AiActionStatus }) {
@@ -86,20 +102,155 @@ function ActionCard({ action }: { action: AiPendingAction }) {
             run_id: {action.run_id}
           </p>
         </div>
-        <p className="text-xs text-muted-foreground shrink-0">
-          {new Date(action.created_at).toLocaleString()}
-        </p>
+        <div className="text-right shrink-0 space-y-0.5">
+          {/* For decided rows, surface decided_at as the primary timestamp so
+              you can scan the list for "most recently actioned". Created_at
+              stays as a small secondary line. */}
+          {action.decided_at ? (
+            <>
+              <p className="text-xs font-semibold text-foreground">
+                {new Date(action.decided_at).toLocaleString()}
+              </p>
+              <p className="text-[10px] text-muted-foreground/70">
+                decided · created {new Date(action.created_at).toLocaleString()}
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {new Date(action.created_at).toLocaleString()}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Payload */}
       <div className="rounded-lg bg-muted/30 border border-border px-3 py-2 text-xs font-mono space-y-0.5">
-        {Object.entries(action.payload).map(([k, v]) => (
-          <div key={k}>
-            <span className="text-muted-foreground">{k}:</span>{" "}
-            <span className="text-foreground">{String(v)}</span>
-          </div>
-        ))}
+        {Object.entries(action.payload).map(([k, v]) => {
+          // Phase 28.4 — `manual_commands` array (from suggest_manual_remediation)
+          // gets a dedicated nested renderer so it doesn't stringify to
+          // "[object Object],…". Other arrays/objects fall back to JSON.stringify
+          // which is at least readable.
+          if (k === "manual_commands" && Array.isArray(v)) {
+            return (
+              <div key={k}>
+                <span className="text-muted-foreground">{k}:</span>
+                <ul className="mt-1 space-y-1 pl-2 border-l border-border/60">
+                  {(v as Array<{ command?: string; purpose?: string }>).map(
+                    (mc, i) => (
+                      <li key={i} className="space-y-0.5">
+                        <code className="text-violet-300 break-all">
+                          {mc.command || "(no command)"}
+                        </code>
+                        {mc.purpose && (
+                          <div className="text-[11px] text-muted-foreground font-sans">
+                            {mc.purpose}
+                          </div>
+                        )}
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </div>
+            );
+          }
+          // Phase 28.5 — render long script bodies / regex patterns in a
+          // dedicated code block instead of inlining them next to the field
+          // label. These come from create_server_rule / create_server_script
+          // / swap_remediation_script payloads.
+          if (
+            (k === "content" || k === "new_script_content" || k === "pattern")
+            && typeof v === "string" && v.length > 0
+          ) {
+            return (
+              <div key={k}>
+                <span className="text-muted-foreground">{k}:</span>
+                <pre className="mt-1 max-h-72 overflow-auto rounded-md bg-zinc-950 border border-border/60 p-2 text-[11px] text-zinc-200 whitespace-pre-wrap break-all">
+{String(v)}
+                </pre>
+              </div>
+            );
+          }
+          if (Array.isArray(v) && v.every((x) => typeof x === "string")) {
+            return (
+              <div key={k}>
+                <span className="text-muted-foreground">{k}:</span>{" "}
+                <span className="text-foreground">{(v as string[]).join(", ") || "—"}</span>
+              </div>
+            );
+          }
+          if (typeof v === "object" && v !== null) {
+            return (
+              <div key={k}>
+                <span className="text-muted-foreground">{k}:</span>{" "}
+                <span className="text-foreground break-all">
+                  {JSON.stringify(v)}
+                </span>
+              </div>
+            );
+          }
+          return (
+            <div key={k}>
+              <span className="text-muted-foreground">{k}:</span>{" "}
+              <span className="text-foreground">{String(v)}</span>
+            </div>
+          );
+        })}
       </div>
+
+      {/* Phase 28.5 — auto-flip info badge for create_server_* and swap actions.
+          Tells the operator that approving on a global-mode server will
+          transparently switch it to `both`. */}
+      {(action.action_type === "create_server_rule"
+        || action.action_type === "create_server_script"
+        || action.action_type === "swap_remediation_script") && (
+        <div className="text-[11px] text-blue-300/80 bg-blue-500/5 border border-blue-500/20 rounded-md px-3 py-1.5">
+          Approving will insert this into the server&apos;s private library. If the
+          server&apos;s library mode is still <b>Global only</b>, it will switch to
+          <b> Both</b> automatically so the new entry takes effect.
+        </div>
+      )}
+
+      {/* Source + server links */}
+      {(action.source_id || action.server_id) && (
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          {action.source_id && action.source_type && (() => {
+            // Phase 28.4 — script-execution-review actions are sourced from an
+            // automation_logs row; the right place to land the operator is the
+            // remediation history page (no per-row deep link yet).
+            // Phase 28.5 — `server` source type fires from the server-overview
+            // agent; deep-link to the server's AI Overview tab.
+            const t = action.source_type;
+            const href =
+              t === "automation_log" ? `/automation/history/${action.source_id}`
+              : t === "incident" ? `/incidents/${action.source_id}`
+              : t === "server" ? `/servers/${action.source_id}#ai-overview`
+              : `/anomalies/${action.source_id}`;
+            const label =
+              t === "automation_log" ? "Remediation run"
+              : t === "incident" ? "Incident"
+              : t === "server" ? "Server overview"
+              : "Anomaly";
+            return (
+              <Link
+                href={href}
+                className="flex items-center gap-1 font-semibold text-primary hover:underline"
+              >
+                {label} {action.source_id.slice(-8)}
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            );
+          })()}
+          {action.server_id && (
+            <Link
+              href={`/servers/${action.server_id}`}
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Server className="h-3 w-3" />
+              {action.server_hostname || action.server_id.slice(-8)}
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Decision info or action buttons */}
       {isPending ? (
@@ -336,30 +487,47 @@ export default function AiActionsPage() {
 
   // Status-changes tab state
   const [statusFilter, setStatusFilter] = useState<"pending" | "approved" | "rejected" | "all">("pending");
+  const [statusSourceType, setStatusSourceType] = useState<"all" | "incident" | "anomaly">("all");
+  const [statusServerId, setStatusServerId] = useState<string>("all");
+  const [statusDateRange, setStatusDateRange] = useState<DateRange>({});
   const [statusPage, setStatusPage] = useState(1);
 
   // Commands tab state
   const [cmdStatus, setCmdStatus] = useState<string>("pending");
   const [cmdSourceType, setCmdSourceType] = useState<"all" | "incident" | "anomaly">("all");
   const [cmdServerId, setCmdServerId] = useState<string>("all");
+  const [cmdDateRange, setCmdDateRange] = useState<DateRange>({});
   const [cmdPage, setCmdPage] = useState(1);
 
   const { data: serversData } = useServers();
   const servers = serversData?.results ?? [];
 
-  const { data, isLoading } = useAiActions(statusFilter, statusPage);
+  const { data, isLoading } = useAiActions({
+    status: statusFilter,
+    source_type: statusSourceType !== "all" ? statusSourceType : undefined,
+    server_id: statusServerId !== "all" ? statusServerId : undefined,
+    from_date: statusDateRange.from ?? undefined,
+    to_date: statusDateRange.to ?? undefined,
+    page: statusPage,
+  });
   const { data: cmdsData, isLoading: cmdsLoading } = useAiCommands({
     status: cmdStatus !== "all" ? cmdStatus : undefined,
     source_type: cmdSourceType !== "all" ? cmdSourceType : undefined,
     server_id: cmdServerId !== "all" ? cmdServerId : undefined,
+    from_date: cmdDateRange.from ?? undefined,
+    to_date: cmdDateRange.to ?? undefined,
     page: cmdPage,
   });
 
   // Reset to page 1 when any filter changes
   const handleStatusFilter = (val: typeof statusFilter) => { setStatusFilter(val); setStatusPage(1); };
+  const handleStatusSourceType = (val: typeof statusSourceType) => { setStatusSourceType(val); setStatusPage(1); };
+  const handleStatusServer = (val: string) => { setStatusServerId(val); setStatusPage(1); };
+  const handleStatusDate = (v: DateRange) => { setStatusDateRange(v); setStatusPage(1); };
   const handleCmdStatus = (val: string) => { setCmdStatus(val); setCmdPage(1); };
   const handleCmdSourceType = (val: typeof cmdSourceType) => { setCmdSourceType(val); setCmdPage(1); };
   const handleCmdServer = (val: string) => { setCmdServerId(val); setCmdPage(1); };
+  const handleCmdDate = (v: DateRange) => { setCmdDateRange(v); setCmdPage(1); };
 
   const tab = TAB_INFO[mainTab];
 
@@ -412,14 +580,53 @@ export default function AiActionsPage() {
         {/* ── Status Changes tab ─────────────────────────────────── */}
         {mainTab === "status-changes" && (
           <>
-            <div className="flex gap-1 p-1 rounded-lg bg-muted/50 border border-border w-fit">
-              {STATUS_TABS.map((t) => (
-                <button key={t.value} onClick={() => handleStatusFilter(t.value)}
-                  className={cn("px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
-                    statusFilter === t.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-                  {t.label}
-                </button>
-              ))}
+            <div className="space-y-2">
+              <div className="flex gap-1 p-1 rounded-lg bg-muted/50 border border-border w-fit">
+                {STATUS_TABS.map((t) => (
+                  <button key={t.value} onClick={() => handleStatusFilter(t.value)}
+                    className={cn("px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                      statusFilter === t.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Source type */}
+                <div className="flex gap-1 p-1 rounded-lg bg-muted/50 border border-border">
+                  {(["all", "incident", "anomaly"] as const).map((t) => (
+                    <button key={t} onClick={() => handleStatusSourceType(t)}
+                      className={cn("px-3 py-1.5 text-xs font-semibold rounded-md transition-colors capitalize",
+                        statusSourceType === t ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                      {t === "all" ? "All sources" : t === "incident" ? "Incidents" : "Anomalies"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Server dropdown */}
+                {servers.length > 0 && (
+                  <Select value={statusServerId} onValueChange={(v) => handleStatusServer(v ?? "all")}>
+                    <SelectTrigger className="h-8 w-45 text-xs font-semibold">
+                      <Server className="h-3 w-3 mr-1 text-muted-foreground" />
+                      <span className="truncate">
+                        {statusServerId === "all"
+                          ? "All servers"
+                          : servers.find((s) => s._id === statusServerId)?.hostname ?? "Unknown server"}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All servers</SelectItem>
+                      {servers.map((srv) => (
+                        <SelectItem key={srv._id} value={srv._id}>
+                          {srv.hostname}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                <DateRangeFilter value={statusDateRange} onChange={handleStatusDate} />
+              </div>
             </div>
             {isLoading ? (
               <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />)}</div>
@@ -481,19 +688,27 @@ export default function AiActionsPage() {
 
                 {/* Server dropdown */}
                 {servers.length > 0 && (
-                  <select
-                    value={cmdServerId}
-                    onChange={(e) => handleCmdServer(e.target.value)}
-                    className="h-8 rounded-lg border border-border bg-muted/50 px-2 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="all">All servers</option>
-                    {servers.map((srv) => (
-                      <option key={srv._id} value={srv._id}>
-                        {srv.hostname}
-                      </option>
-                    ))}
-                  </select>
+                  <Select value={cmdServerId} onValueChange={(v) => handleCmdServer(v ?? "all")}>
+                    <SelectTrigger className="h-8 w-45 text-xs font-semibold">
+                      <Server className="h-3 w-3 mr-1 text-muted-foreground" />
+                      <span className="truncate">
+                        {cmdServerId === "all"
+                          ? "All servers"
+                          : servers.find((s) => s._id === cmdServerId)?.hostname ?? "Unknown server"}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All servers</SelectItem>
+                      {servers.map((srv) => (
+                        <SelectItem key={srv._id} value={srv._id}>
+                          {srv.hostname}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
+
+                <DateRangeFilter value={cmdDateRange} onChange={handleCmdDate} />
               </div>
             </div>
             {cmdsLoading ? (

@@ -1,5 +1,18 @@
 import { apiClient, ApiError } from "@/lib/api";
-import type { ServerResponse, ServerCreate, ServerUpdate, ServerDelete, ServerFilters, ServerListResponse, WarmupResetRequest } from "@/lib/types";
+import type { ServerResponse, ServerCreate, ServerUpdate, ServerDelete, ServerFilters, ServerListResponse, WarmupResetRequest, AiManualCommand } from "@/lib/types";
+
+export interface ServerOverviewResult {
+  status: string;
+  server_id: string;
+  analysis_id: string;
+  run_id: string;
+  summary: string;
+  markdown: string;
+  manual_commands: AiManualCommand[];
+  confidence: number;
+  hours: number;
+  analyzed_at: string;
+}
 
 export class BlockedError extends Error {
   constructor(public reason: string) {
@@ -69,6 +82,9 @@ export const serversApi = {
 
   recalculateStats: (id: string) =>
     apiClient.post<{ status: string; open_incidents_count: number }>(`/api/servers/${id}/recalculate-stats`),
+
+  runOverview: (id: string, hours: number) =>
+    apiClient.post<ServerOverviewResult>(`/api/analysis/server-overview/${id}?hours=${hours}`),
 
   // execute does NOT require a password — the stored credential is used
   execute: async (

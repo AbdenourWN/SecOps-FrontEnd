@@ -30,6 +30,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
+import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
 import type {
   AnomalySeverity,
   AnomalyType,
@@ -62,8 +63,11 @@ export default function AnomaliesPage() {
   const [severityFilter, setSeverityFilter] = useState<AnomalySeverity | "all">("all");
   const [statusFilter, setStatusFilter] = useState<LogObservationStatus | "all">("pending_review");
   const [typeFilter, setTypeFilter] = useState<AnomalyType | "all">("all");
+  const [dateRange, setDateRange] = useState<DateRange>({});
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  const setDateAndReset = (v: DateRange) => { setDateRange(v); setPage(1); };
 
   const { data: stats } = useAnomalyStats();
   const { data: serversData } = useServers({ page_size: 100 });
@@ -74,6 +78,8 @@ export default function AnomaliesPage() {
     severity: severityFilter === "all" ? undefined : severityFilter,
     status: statusFilter === "all" ? undefined : statusFilter,
     type: typeFilter === "all" ? undefined : typeFilter,
+    from_date: dateRange.from ?? undefined,
+    to_date: dateRange.to ?? undefined,
     page,
     page_size: PAGE_SIZE,
   });
@@ -231,6 +237,13 @@ export default function AnomaliesPage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Time range
+              </label>
+              <DateRangeFilter value={dateRange} onChange={setDateAndReset} />
             </div>
 
             <div className="flex flex-col gap-1.5 ml-auto">

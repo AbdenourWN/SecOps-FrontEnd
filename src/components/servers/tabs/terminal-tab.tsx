@@ -20,6 +20,7 @@ import {
   type ErrorEvent,
 } from "@/lib/terminal-ws";
 import { cn } from "@/lib/utils";
+import { diagnoseAuthFailure } from "@/lib/server-auth-diagnostics";
 import type { ServerResponse } from "@/lib/types";
 
 type EntryKind =
@@ -395,34 +396,47 @@ export function TerminalTab({ server }: TerminalTabProps) {
   // --- Offline / auth-broken gate ---
   if (server.status !== "online") {
     const isReachable = server.status === "reachable";
+    const diag = isReachable ? diagnoseAuthFailure(server.auth_failure_reason, server.os_type) : null;
     return (
-      <div className="rounded-2xl border border-border bg-card p-8 max-w-md mx-auto shadow-xl">
+      <div className="rounded-2xl border border-border bg-card p-8 max-w-lg mx-auto shadow-xl">
         <div className="flex flex-col items-center text-center">
           <div className={`h-14 w-14 rounded-full flex items-center justify-center mb-4 ring-1 ${isReachable ? "bg-yellow-500/10 ring-yellow-500/20" : "bg-red-500/10 ring-red-500/20"}`}>
             <WifiOff className={`h-6 w-6 ${isReachable ? "text-yellow-400" : "text-red-400"}`} />
           </div>
-          <h3 className="text-lg font-bold">{isReachable ? "Credentials Failed" : "Server Unreachable"}</h3>
-          <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-            {isReachable ? (
-              <>
+          {isReachable && diag ? (
+            <>
+              <h3 className="text-lg font-bold">{diag.title}</h3>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                 <span className="font-mono font-semibold text-foreground">{server.hostname}</span>{" "}
-                is reachable on the network but the stored credentials are failing.
-                {server.auth_failure_reason && (
-                  <span className="block mt-1 font-mono text-xs text-yellow-400">{server.auth_failure_reason}</span>
-                )}
-                {" "}Update the credentials in the server settings to restore access.
-              </>
-            ) : (
-              <>
+                is reachable on the network but the credential check failed.
+              </p>
+              <p className="text-sm text-muted-foreground mt-3 leading-relaxed text-left">
+                {diag.explanation}
+              </p>
+              {diag.rawError && (
+                <div className="mt-3 w-full text-left">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Error returned by {server.os_type === "windows" ? "WinRM" : "SSH"}
+                  </p>
+                  <pre className="text-[11px] font-mono text-yellow-300 bg-yellow-500/5 border border-yellow-500/20 rounded px-2 py-1.5 whitespace-pre-wrap break-words">
+                    {diag.rawError}
+                  </pre>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-bold">Server Unreachable</h3>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                 <span className="font-mono font-semibold text-foreground">{server.hostname}</span>{" "}
                 is currently{" "}
                 <span className={server.status === "unknown" ? "text-amber-400" : "text-red-400"}>
                   {server.status}
                 </span>
                 . The terminal is unavailable until the server comes back online.
-              </>
-            )}
-          </p>
+              </p>
+            </>
+          )}
         </div>
       </div>
     );

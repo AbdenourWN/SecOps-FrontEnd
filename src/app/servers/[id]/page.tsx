@@ -12,15 +12,29 @@ import { IncidentsTab } from "@/components/servers/tabs/incidents-tab";
 import { TerminalTab } from "@/components/servers/tabs/terminal-tab";
 import { MetricsTab } from "@/components/servers/tabs/metrics-tab";
 import { AnomaliesTab } from "@/components/servers/tabs/anomalies-tab";
+import { AiOverviewTab } from "@/components/servers/tabs/ai-overview-tab";
+import { ServerRulesTab } from "@/components/servers/tabs/server-rules-tab";
+import { ServerScriptsTab } from "@/components/servers/tabs/server-scripts-tab";
 import { useRouter } from "next/navigation";
 import { ServerStatusBadge } from "@/components/shared/badges";
 import { timeAgo, cn } from "@/lib/utils";
-import { Trash2, ArrowLeft, Pencil, RefreshCw } from "lucide-react";
+import { diagnoseAuthFailure } from "@/lib/server-auth-diagnostics";
+import { Trash2, ArrowLeft, Pencil, RefreshCw, AlertTriangle } from "lucide-react";
 import { useState, use } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
 
-type TabKey = "overview" | "metrics" | "logs" | "sources" | "incidents" | "anomalies" | "actions";
+type TabKey =
+  | "overview"
+  | "metrics"
+  | "logs"
+  | "sources"
+  | "incidents"
+  | "anomalies"
+  | "rules"     // Phase 28.5 — per-server private rule library
+  | "scripts"   // Phase 28.5 — per-server private script library
+  | "ai-overview"
+  | "actions";
 
 export default function ServerDetailPage({
   params,
@@ -94,13 +108,17 @@ export default function ServerDetailPage({
   };
 
   const tabs: Array<{ key: TabKey; label: string; badge?: number }> = [
-    { key: "overview",  label: "Overview" },
-    { key: "metrics",   label: "Metrics" },
-    { key: "logs",      label: "Logs" },
-    { key: "sources",   label: "Log Sources" },
-    { key: "incidents", label: "Incidents", badge: openIncidentCount },
-    { key: "anomalies", label: "Anomalies", badge: pendingAnomalyCount },
-    { key: "actions",   label: "Actions" },
+    { key: "overview",    label: "Overview" },
+    { key: "metrics",     label: "Metrics" },
+    { key: "logs",        label: "Logs" },
+    { key: "sources",     label: "Log Sources" },
+    { key: "incidents",   label: "Incidents", badge: openIncidentCount },
+    { key: "anomalies",   label: "Anomalies", badge: pendingAnomalyCount },
+    // Phase 28.5 — per-server private library tabs
+    { key: "rules",       label: "Rules" },
+    { key: "scripts",     label: "Scripts" },
+    { key: "ai-overview", label: "AI Overview" },
+    { key: "actions",     label: "Actions" },
   ];
 
   return (
@@ -129,16 +147,30 @@ export default function ServerDetailPage({
               <span className="capitalize">{server.os_type}</span>
               <span>Last check: {timeAgo(server.last_health_check)}</span>
             </div>
-            {server.status === "reachable" && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
-                <span className="font-semibold shrink-0">⚠ Credentials failing</span>
-                <span className="text-yellow-400/80">
-                  {server.auth_failure_reason
-                    ? `— ${server.auth_failure_reason}`
-                    : "— server is reachable but authentication is broken. Update credentials in Settings."}
-                </span>
-              </div>
-            )}
+            {server.status === "reachable" && (() => {
+              const d = diagnoseAuthFailure(server.auth_failure_reason, server.os_type);
+              return (
+                <div className="mt-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-yellow-300" />
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-yellow-300">{d.title}</p>
+                      <p className="text-xs leading-relaxed text-yellow-200/80">{d.explanation}</p>
+                    </div>
+                  </div>
+                  {d.rawError && (
+                    <div className="pl-6">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-300/70 mb-1">
+                        Error returned by {server.os_type === "windows" ? "WinRM" : "SSH"}
+                      </p>
+                      <pre className="text-[11px] font-mono text-yellow-200 bg-yellow-500/5 border border-yellow-500/20 rounded px-2 py-1.5 whitespace-pre-wrap break-words">
+                        {d.rawError}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -209,6 +241,9 @@ export default function ServerDetailPage({
         )}
         {activeTab === "incidents" && <IncidentsTab serverId={id} />}
         {activeTab === "anomalies" && <AnomaliesTab serverId={id} />}
+        {activeTab === "rules" && <ServerRulesTab serverId={id} />}
+        {activeTab === "scripts" && <ServerScriptsTab serverId={id} />}
+        {activeTab === "ai-overview" && <AiOverviewTab server={server} />}
         {activeTab === "actions" && <TerminalTab server={server} />}
 
         {/* Delete Confirm Modal */}

@@ -2,12 +2,14 @@
 
 import { use, useState } from "react";
 import { useAiAnalysisStream } from "@/lib/hooks/use-ai-stream";
+import { useStickToBottom } from "@/lib/hooks/use-stick-to-bottom";
 import { TypingCursor } from "@/components/shared/typing-cursor";
 import Link from "next/link";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Brain,
@@ -43,6 +45,8 @@ import {
   useRejectCommands,
 } from "@/lib/hooks/use-ai-actions";
 import { CommandDetailModal } from "@/components/shared/command-detail-modal";
+import { AiActionsForSource } from "@/components/shared/ai-actions-for-source";
+import { ManualCommandCard } from "@/components/shared/manual-command-card";
 import { cn, timeAgo } from "@/lib/utils";
 import type {
   AiCommand,
@@ -52,39 +56,7 @@ import type {
 } from "@/lib/types";
 
 // ── Shared sub-components ─────────────────────────────────────────────────────
-
-function ManualCommandCard({ command, purpose, note }: { command: string; purpose: string; note: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    navigator.clipboard.writeText(command).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-  return (
-    <div className="rounded-lg border border-violet-500/15 bg-background/50 p-3 space-y-2">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-0.5">
-          <p className="text-xs text-muted-foreground">{purpose}</p>
-          <code className="block text-xs font-mono text-violet-300 break-all leading-relaxed">{command}</code>
-        </div>
-        <button
-          onClick={handleCopy}
-          className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors mt-0.5"
-        >
-          {copied ? (
-            <><CheckCircle2 className="h-3 w-3 text-emerald-400" /><span className="text-emerald-400">Copied</span></>
-          ) : (
-            <><ClipboardCopy className="h-3 w-3" /> Copy</>
-          )}
-        </button>
-      </div>
-      {note && (
-        <p className="text-[10px] text-violet-400/70 font-medium">⚠ {note}</p>
-      )}
-    </div>
-  );
-}
+// ManualCommandCard now lives in @/components/shared/manual-command-card.
 
 const RISK_STYLES: Record<string, string> = {
   low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
@@ -147,24 +119,44 @@ function CommandCard({
             <p className="text-xs text-muted-foreground mt-0.5">{cmd.purpose}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {canAct ? (
-            <>
-              <button onClick={onApprove} disabled={approving}
-                className="text-[11px] font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50">
-                Approve
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          {/* Timestamp — show decided_at prominently for decided rows so the
+              newest decision is easy to spot. Pending rows show created_at. */}
+          <div className="text-right leading-tight">
+            {cmd.decided_at ? (
+              <>
+                <p className="text-[10px] font-semibold text-foreground">
+                  {new Date(cmd.decided_at).toLocaleString()}
+                </p>
+                <p className="text-[9px] text-muted-foreground/70">
+                  decided · created {new Date(cmd.created_at).toLocaleString()}
+                </p>
+              </>
+            ) : (
+              <p className="text-[10px] text-muted-foreground">
+                {new Date(cmd.created_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {canAct ? (
+              <>
+                <button onClick={onApprove} disabled={approving}
+                  className="text-[11px] font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50">
+                  Approve
+                </button>
+                <button onClick={onReject} disabled={rejecting}
+                  className="text-[11px] font-semibold px-2 py-1 rounded bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                  Dismiss
+                </button>
+              </>
+            ) : (
+              <button onClick={onViewDetails}
+                className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                <Eye className="h-3 w-3" /> Details
               </button>
-              <button onClick={onReject} disabled={rejecting}
-                className="text-[11px] font-semibold px-2 py-1 rounded bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                Dismiss
-              </button>
-            </>
-          ) : (
-            <button onClick={onViewDetails}
-              className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors">
-              <Eye className="h-3 w-3" /> Details
-            </button>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
@@ -234,7 +226,16 @@ export default function AnomalyDetailPage({
   // Streaming hook MUST be called before any conditional returns (Rules of Hooks).
   // anomaly may be undefined on first render — useAiAnalysisStream tolerates an undefined serverId.
   const analysisRunning = aiAnalysis.isPending || !!anomaly?.ai_analysis_in_progress;
-  const { streamedMarkdown, gapDetected } = useAiAnalysisStream("anomaly", id, anomaly?.server_id, analysisRunning);
+  const { streamedMarkdown, gapDetected, streamCompleted } = useAiAnalysisStream("anomaly", id, anomaly?.server_id, analysisRunning);
+  const analysisContent = (analysisRunning && streamedMarkdown) ? streamedMarkdown : (anomaly?.ai_analysis ?? "");
+  const { scrollRef: analysisScrollRef, onScroll: onAnalysisScroll } = useStickToBottom<HTMLDivElement>(analysisContent);
+  // See incident page — detect "agent finished but produced nothing" so we don't render an empty box.
+  const isEmptyAnalysis = (md: string | null | undefined): boolean => {
+    if (!md) return false;
+    const body = md.replace(/^## AI (?:Triage |Anomaly )?Analysis\s*/i, "").replace(/---[\s\S]*$/, "").trim();
+    return body.length === 0;
+  };
+  const justEndedEmpty = streamCompleted && !streamedMarkdown && isEmptyAnalysis(anomaly?.ai_analysis);
 
   const commands = commandsData?.results ?? [];
   const pendingCommands = commands.filter((c) => c.status === "pending");
@@ -424,9 +425,26 @@ export default function AnomalyDetailPage({
                 </div>
               )}
 
+              {/* Agent finished with no output — clearer than rendering an empty markdown block */}
+              {justEndedEmpty && !analysisRunning && (
+                <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-400" />
+                  <div className="text-xs text-amber-300 space-y-0.5">
+                    <p className="font-semibold">Analysis ended with no output.</p>
+                    <p className="text-amber-400/70 leading-relaxed">
+                      The AI agent finished without producing any content — most likely the LLM call failed (rate limit, bad credentials, or model unavailable).
+                      Check the backend logs and click <span className="font-medium text-amber-300">Re-analyze</span> to retry.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Analysis content — streaming while running, saved when done */}
-              {(analysisRunning && streamedMarkdown) || anomaly.ai_analysis ? (
-                <div className={cn(
+              {!justEndedEmpty && ((analysisRunning && streamedMarkdown) || anomaly.ai_analysis) ? (
+                <div
+                  ref={analysisScrollRef}
+                  onScroll={onAnalysisScroll}
+                  className={cn(
                   "max-h-125 overflow-y-auto rounded-lg border p-5 bg-slate-50 dark:bg-muted/20",
                   analysisRunning
                     ? "border-primary/40"
@@ -469,12 +487,16 @@ export default function AnomalyDetailPage({
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   AI agent is gathering evidence, please wait…
                 </div>
-              ) : (
+              ) : justEndedEmpty ? null /* banner above already explains the empty result */ : (
                 <p className="text-sm text-muted-foreground">
                   No AI analysis available. Click &quot;Run Analysis&quot; to investigate this anomaly with the AI triage agent.
                 </p>
               )}
             </div>
+
+            {/* AI Status-Change Suggestions (only present when server is suggest-level
+                and the agent has proposed dismiss/promote actions) */}
+            <AiActionsForSource sourceType="anomaly" sourceId={id} serverId={anomaly.server_id} />
 
             {/* Manual Commands */}
             {anomaly.ai_manual_commands && anomaly.ai_manual_commands.length > 0 && (

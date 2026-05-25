@@ -14,6 +14,8 @@ export const incidentsApi = {
     if (filters?.severity) params.set("severity", filters.severity);
     if (filters?.status) params.set("status", filters.status);
     if (filters?.search) params.set("search", filters.search);
+    if (filters?.from_date) params.set("from_date", filters.from_date);
+    if (filters?.to_date) params.set("to_date", filters.to_date);
     if (filters?.page) params.set("page", String(filters.page));
     if (filters?.page_size) params.set("page_size", String(filters.page_size));
     const qs = params.toString();

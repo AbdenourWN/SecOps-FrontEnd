@@ -60,6 +60,15 @@ export type AiStreamResult = {
   streamedMarkdown: string;
   /** True after a mid-stream reconnect where tokens were missed. */
   gapDetected: boolean;
+  /**
+   * Set when an ai_analysis_complete event for the current source has been
+   * observed since the last analysis was triggered. Lets the page distinguish:
+   *   - analysisRunning && !streamCompleted && !streamedMarkdown → "agent starting…"
+   *   - streamCompleted && !streamedMarkdown && !savedAnalysis → "agent finished with no output"
+   *   - streamCompleted && streamedMarkdown → final view, no cursor
+   * Reset when a new analysis run kicks off (isRunning false→true).
+   */
+  streamCompleted: boolean;
 };
 
 export function useAiAnalysisStream(
@@ -79,6 +88,7 @@ export function useAiAnalysisStream(
   });
 
   const [gapDetected, setGapDetected] = useState(false);
+  const [streamCompleted, setStreamCompleted] = useState(false);
 
   const isRunningRef = useRef(isRunning);
   useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
@@ -109,16 +119,31 @@ export function useAiAnalysisStream(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  // Reset stale flags whenever a new analysis kicks off (isRunning
+  // transitions false→true). Without this, a banner raised during the
+  // previous run would persist into the next Re-analyze and streamCompleted
+  // would keep showing the wrong end-state.
+  const prevRunningRef = useRef(isRunning);
+  useEffect(() => {
+    if (!prevRunningRef.current && isRunning) {
+      setGapDetected(false);
+      setStreamCompleted(false);
+    }
+    prevRunningRef.current = isRunning;
+  }, [isRunning]);
+
   useEffect(() => {
     if (!serverId || !sourceId) return;
     const topic = `servers.${serverId}.ai`;
 
     const handler = (payload: unknown, event: string) => {
-      if (!isRunningRef.current) return;
       const p = payload as Record<string, string>;
       if (p.source_id !== sourceId || p.source_type !== sourceType) return;
 
       if (event === "ai_analysis_token" && p.token) {
+        // Token handler: gated on isRunningRef so we don't append after the
+        // user has navigated away or the analysis is already considered done.
+        if (!isRunningRef.current) return;
         const incomingRun = p.run_id ?? "";
 
         // ── New analysis run detected ────────────────────────────────────
@@ -129,17 +154,27 @@ export function useAiAnalysisStream(
           lsClear(sourceType, sourceId);
           setStreamedMarkdown("");
           setGapDetected(false);
+          setStreamCompleted(false);
           justResumedRef.current = false;
         }
         lastRunIdRef.current = incomingRun;
 
-        // ── Reconnect gap (we have stored content from before a disconnect) ──
+        // ── Reconnect gap ────────────────────────────────────────────────
+        // We mounted with cached content and this is the first new token
+        // since. Keep the cached content (it's real output the user already
+        // saw) and append the new token onto it, separated by a small
+        // marker so the user can visually locate the discontinuity. Raise
+        // the gap banner once.
         if (justResumedRef.current) {
           justResumedRef.current = false;
           setGapDetected(true);
-          _store.set(key, p.token);
-          lsWrite(sourceType, sourceId, p.token);
-          setStreamedMarkdown(p.token);
+          const previous = _store.get(key) ?? "";
+          const separator = previous.endsWith("\n\n") || previous === "" ? "" : "\n\n";
+          const marker = previous ? "_…streaming resumed…_\n\n" : "";
+          const next = previous + separator + marker + p.token;
+          _store.set(key, next);
+          lsWrite(sourceType, sourceId, next);
+          setStreamedMarkdown(next);
           return;
         }
 
@@ -151,12 +186,27 @@ export function useAiAnalysisStream(
       }
 
       if (event === "ai_analysis_complete") {
-        // Analysis is saved to the DB now; the persisted stream is no longer
-        // needed and would only confuse a re-analyze.
+        // Complete handler intentionally NOT gated on isRunningRef — even if
+        // the ref hasn't flipped to true yet (race between mutation start and
+        // the effect that updates the ref), we still want to record the
+        // terminal state so the UI knows the stream is over.
+
+        // Filter by run_id: if we already saw tokens, only act when the
+        // complete event matches the run we were following. A stale complete
+        // from a previous run must NOT wipe the current run's content.
+        const incomingRun = p.run_id ?? "";
+        const tracking = lastRunIdRef.current;
+        if (tracking && incomingRun && tracking !== incomingRun) {
+          return;
+        }
+
+        // Genuine end-of-stream for this source.
         _store.delete(key);
         lsClear(sourceType, sourceId);
         lastRunIdRef.current = null;
         justResumedRef.current = false;
+        setGapDetected(false);
+        setStreamCompleted(true);
       }
     };
 
@@ -164,5 +214,5 @@ export function useAiAnalysisStream(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverId, sourceId, sourceType, key]);
 
-  return { streamedMarkdown, gapDetected };
+  return { streamedMarkdown, gapDetected, streamCompleted };
 }

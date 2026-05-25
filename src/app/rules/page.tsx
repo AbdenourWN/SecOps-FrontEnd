@@ -8,6 +8,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { OwnerBadge } from "@/components/shared/owner-badge";
 import type { SeverityLevel, ActionLevel, RuleOSType, DetectionRule } from "@/lib/types";
 import {
   Select,
@@ -31,11 +32,14 @@ export default function RulesPage() {
   const [filterSeverity, setFilterSeverity] = useState<SeverityLevel | "all">("all");
   const [filterOS, setFilterOS] = useState<RuleOSType | "all">("all");
   const [filterEnabled, setFilterEnabled] = useState<"all" | "true" | "false">("all");
+  // Phase 28.5 — library scope filter
+  const [filterScope, setFilterScope] = useState<"all" | "global" | "server">("all");
   const [page, setPage] = useState(1);
 
   const setSeverityAndReset = (v: SeverityLevel | "all") => { setFilterSeverity(v); setPage(1); };
   const setOSAndReset = (v: RuleOSType | "all") => { setFilterOS(v); setPage(1); };
   const setEnabledAndReset = (v: "all" | "true" | "false") => { setFilterEnabled(v); setPage(1); };
+  const setScopeAndReset = (v: "all" | "global" | "server") => { setFilterScope(v); setPage(1); };
   const executeSearch = () => { setSearch(searchInput); setPage(1); };
 
   const { data, isLoading } = useRules({
@@ -43,6 +47,7 @@ export default function RulesPage() {
     os_type: filterOS === "all" ? undefined : filterOS,
     enabled: filterEnabled === "all" ? undefined : filterEnabled === "true",
     search: search || undefined,
+    owner_type: filterScope === "all" ? undefined : filterScope,
     page,
     page_size: PAGE_SIZE,
   });
@@ -168,6 +173,27 @@ export default function RulesPage() {
               ))}
             </div>
 
+            {/* Phase 28.5 — library scope filter */}
+            <div
+              className="flex items-center gap-2 bg-muted/30 p-1 rounded-xl border border-border"
+              title="Filter by library scope: All shows everything, Global hides per-server private rules, Server-only shows just server-scoped rules"
+            >
+              {(["all", "global", "server"] as const).map((scope) => (
+                <button
+                  key={scope}
+                  onClick={() => setScopeAndReset(scope)}
+                  className={cn(
+                    "px-4 py-1.5 text-xs font-semibold rounded-lg capitalize transition-all",
+                    filterScope === scope
+                      ? "bg-card shadow-sm text-foreground border border-border"
+                      : "text-muted-foreground hover:text-foreground border border-transparent"
+                  )}
+                >
+                  {scope === "all" ? "All scopes" : scope === "global" ? "Global" : "Server-scoped"}
+                </button>
+              ))}
+            </div>
+
             <div className="flex items-center gap-2 bg-muted/30 p-1 rounded-xl border border-border ml-auto">
               {(["all", "true", "false"] as const).map((val) => (
                 <button
@@ -232,6 +258,8 @@ export default function RulesPage() {
                           )}>
                              {rule.severity}
                           </span>
+                          {/* Phase 28.5 — library ownership badge */}
+                          <OwnerBadge ownerType={rule.owner_type} ownerId={rule.owner_id} link />
                         </div>
                         <div className="bg-muted/30 rounded inline-block px-2 py-0.5 mb-2 font-mono text-[11px] text-primary/70 truncate max-w-full italic border border-border/50">
                            /{rule.pattern}/i

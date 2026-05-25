@@ -8,6 +8,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { timeAgo, cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { OwnerBadge } from "@/components/shared/owner-badge";
 import type { ScriptLanguage, ScriptResponse } from "@/lib/types";
 import {
   Select,
@@ -30,16 +31,20 @@ export default function AutomationPage() {
   const [search, setSearch] = useState("");
   const [filterLanguage, setFilterLanguage] = useState<ScriptLanguage | "all">("all");
   const [filterOS, setFilterOS] = useState<"all" | "linux" | "windows">("all");
+  // Phase 28.5 — library scope filter
+  const [filterScope, setFilterScope] = useState<"all" | "global" | "server">("all");
   const [page, setPage] = useState(1);
 
   const setLanguageAndReset = (v: ScriptLanguage | "all") => { setFilterLanguage(v); setPage(1); };
   const setOSAndReset = (v: "all" | "linux" | "windows") => { setFilterOS(v); setPage(1); };
+  const setScopeAndReset = (v: "all" | "global" | "server") => { setFilterScope(v); setPage(1); };
   const executeSearch = () => { setSearch(searchInput); setPage(1); };
 
   const { data, isLoading } = useScripts({
     language: filterLanguage === "all" ? undefined : filterLanguage,
     target_os: filterOS === "all" ? undefined : filterOS,
     search: search || undefined,
+    owner_type: filterScope === "all" ? undefined : filterScope,
     page,
     page_size: PAGE_SIZE,
   });
@@ -165,6 +170,27 @@ export default function AutomationPage() {
                 </button>
               ))}
             </div>
+
+            {/* Phase 28.5 — library scope filter */}
+            <div
+              className="flex items-center gap-2 bg-muted/30 p-1 rounded-xl border border-border"
+              title="Filter by library scope"
+            >
+              {(["all", "global", "server"] as const).map((scope) => (
+                <button
+                  key={scope}
+                  onClick={() => setScopeAndReset(scope)}
+                  className={cn(
+                    "px-4 py-1.5 text-xs font-semibold rounded-lg capitalize transition-all",
+                    filterScope === scope
+                      ? "bg-card shadow-sm text-foreground border border-border"
+                      : "text-muted-foreground hover:text-foreground border border-transparent"
+                  )}
+                >
+                  {scope === "all" ? "All scopes" : scope === "global" ? "Global" : "Server-scoped"}
+                </button>
+              ))}
+            </div>
           </div>
 
           {isLoading ? (
@@ -258,6 +284,8 @@ export default function AutomationPage() {
                             {catIcon}{script.category}
                           </span>
                         )}
+                        {/* Phase 28.5 — library ownership badge */}
+                        <OwnerBadge ownerType={script.owner_type} ownerId={script.owner_id} link />
                       </div>
 
                       <h3 className="text-xl font-bold tracking-tight mb-2 pr-16">{script.name}</h3>

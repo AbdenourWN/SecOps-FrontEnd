@@ -7,6 +7,10 @@ import { SeverityBadge, StatusBadge } from "@/components/shared/badges";
 import { useIncidents } from "@/lib/hooks/use-incidents";
 import { timeAgo, cn } from "@/lib/utils";
 import type { IncidentStatus, SeverityLevel } from "@/lib/types";
+import {
+  DateRangeFilter,
+  type DateRange,
+} from "@/components/shared/date-range-filter";
 
 const PAGE_SIZE = 10;
 
@@ -19,6 +23,7 @@ export function IncidentsTab({ serverId }: IncidentsTabProps) {
   const [search, setSearch] = useState("");
   const [severity, setSeverity] = useState<SeverityLevel | "all">("all");
   const [status, setStatus] = useState<IncidentStatus | "all">("all");
+  const [dateRange, setDateRange] = useState<DateRange>({});
   const [page, setPage] = useState(1);
 
   const setSeverityAndReset = (v: SeverityLevel | "all") => {
@@ -27,6 +32,10 @@ export function IncidentsTab({ serverId }: IncidentsTabProps) {
   };
   const setStatusAndReset = (v: IncidentStatus | "all") => {
     setStatus(v);
+    setPage(1);
+  };
+  const setDateAndReset = (v: DateRange) => {
+    setDateRange(v);
     setPage(1);
   };
   const executeSearch = () => {
@@ -39,6 +48,8 @@ export function IncidentsTab({ serverId }: IncidentsTabProps) {
     severity: severity === "all" ? undefined : severity,
     status: status === "all" ? undefined : status,
     search: search || undefined,
+    from_date: dateRange.from ?? undefined,
+    to_date: dateRange.to ?? undefined,
     page,
     page_size: PAGE_SIZE,
   });
@@ -88,6 +99,7 @@ export function IncidentsTab({ serverId }: IncidentsTabProps) {
             ),
           )}
         </div>
+        <DateRangeFilter value={dateRange} onChange={setDateAndReset} />
         <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-xl border border-border ml-auto">
           {(["all", "open", "investigating", "resolved"] as const).map((st) => (
             <button
@@ -169,8 +181,8 @@ export function IncidentsTab({ serverId }: IncidentsTabProps) {
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2">
           <p className="text-xs text-muted-foreground">
-            Page{" "}
-            <span className="font-semibold text-foreground">{page}</span> of{" "}
+            Page <span className="font-semibold text-foreground">{page}</span>{" "}
+            of{" "}
             <span className="font-semibold text-foreground">{totalPages}</span>
             {" · "}
             <span className="font-semibold text-foreground">
@@ -195,10 +207,7 @@ export function IncidentsTab({ serverId }: IncidentsTabProps) {
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
               .filter(
-                (p) =>
-                  p === 1 ||
-                  p === totalPages ||
-                  Math.abs(p - page) <= 1,
+                (p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1,
               )
               .reduce<(number | "…")[]>((acc, p, idx, arr) => {
                 if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");

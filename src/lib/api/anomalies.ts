@@ -13,6 +13,8 @@ export const anomaliesApi = {
     if (filters?.status && filters.status !== "all") params.set("status", filters.status);
     if (filters?.severity && filters.severity !== "all") params.set("severity", filters.severity);
     if (filters?.type && filters.type !== "all") params.set("type", filters.type);
+    if (filters?.from_date) params.set("from_date", filters.from_date);
+    if (filters?.to_date) params.set("to_date", filters.to_date);
     if (filters?.page) params.set("page", String(filters.page));
     if (filters?.page_size) params.set("page_size", String(filters.page_size));
     const qs = params.toString();

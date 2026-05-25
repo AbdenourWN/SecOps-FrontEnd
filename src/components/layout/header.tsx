@@ -1,12 +1,36 @@
 "use client";
 
-import { Search, Bell, Settings, Sun, Moon, Menu } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Search, Bell, Settings, Sun, Moon, Menu, Clock } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/providers/auth-provider";
 import Link from "next/link";
 
 interface HeaderProps {
   onMenuClick: () => void;
+}
+
+function UtcClock() {
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    const update = () =>
+      setTime(new Date().toISOString().slice(11, 19));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div
+      className="hidden md:flex items-center gap-1.5 h-9 px-2.5 rounded-lg border border-border bg-muted/40 text-[11px] font-mono text-muted-foreground tabular-nums"
+      title="Current UTC time"
+      suppressHydrationWarning
+    >
+      <Clock className="h-3.5 w-3.5 text-primary/70" />
+      <span>{time || "--:--:--"} UTC</span>
+    </div>
+  );
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
@@ -29,9 +53,9 @@ export function Header({ onMenuClick }: HeaderProps) {
         </span>
       </div>
 
-      {/* Center: Global search */}
-      <div className="hidden md:flex items-center max-w-md w-full mx-8">
-        <div className="relative w-full">
+      {/* Center: Global search + UTC clock */}
+      <div className="hidden md:flex items-center max-w-2xl w-full mx-8 gap-2">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
@@ -39,6 +63,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             className="w-full h-9 rounded-lg border border-border bg-muted/50 pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
           />
         </div>
+        <UtcClock />
       </div>
 
       {/* Right: Actions */}

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   Bot,
+  BrainCircuit,
   LayoutDashboard,
   Server,
   AlertTriangle,
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/rules", label: "Detection Rules", icon: Shield },
   { href: "/automation", label: "Automation", icon: Terminal },
   { href: "/ai-actions", label: "AI Actions", icon: Bot },
+  { href: "/ai-analyses", label: "AI Analyses", icon: BrainCircuit },
 ];
 
 interface SidebarProps {

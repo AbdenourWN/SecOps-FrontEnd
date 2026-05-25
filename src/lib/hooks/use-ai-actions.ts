@@ -7,12 +7,34 @@ import { useWsInvalidator } from "@/lib/hooks/use-ws-invalidator";
 
 // ── Mutation-action inbox hooks ───────────────────────────────────────────────
 
-export function useAiActions(status?: string, page = 1) {
+export function useAiActions(filters?: {
+  status?: string;
+  server_id?: string;
+  source_type?: string;
+  source_id?: string;
+  from_date?: string;
+  to_date?: string;
+  page?: number;
+}) {
   useWsInvalidator("ai_actions", [["ai-actions"]]);
   return useQuery({
-    queryKey: ["ai-actions", status, page],
-    queryFn: () => aiActionsApi.list(status, page),
+    queryKey: ["ai-actions", filters],
+    queryFn: () => aiActionsApi.list(filters),
     refetchInterval: 30_000,
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useAiActionsForSource(sourceType: string, sourceId: string, serverId?: string) {
+  useWsInvalidator("ai_actions", [["ai-actions", sourceType, sourceId]]);
+  useWsInvalidator(
+    serverId ? `servers.${serverId}.ai` : "ai_actions",
+    [["ai-actions", sourceType, sourceId]],
+  );
+  return useQuery({
+    queryKey: ["ai-actions", sourceType, sourceId],
+    queryFn: () => aiActionsApi.list({ status: "all", source_type: sourceType, source_id: sourceId, page_size: 25 }),
+    enabled: !!sourceId,
     placeholderData: (prev) => prev,
   });
 }
@@ -21,7 +43,7 @@ export function useAiPendingCount() {
   useWsInvalidator("ai_actions", [["ai-actions", "count"]]);
   return useQuery({
     queryKey: ["ai-actions", "count"],
-    queryFn: aiActionsApi.pendingCount,
+    queryFn: () => aiActionsApi.pendingCount(),
     refetchInterval: 30_000,
   });
 }
@@ -50,7 +72,7 @@ export function useRejectAiAction() {
 
 // ── AI Command hooks ──────────────────────────────────────────────────────────
 
-export function useAiCommands(filters?: { status?: string; server_id?: string; source_id?: string; source_type?: string; page?: number }) {
+export function useAiCommands(filters?: { status?: string; server_id?: string; source_id?: string; source_type?: string; from_date?: string; to_date?: string; page?: number }) {
   useWsInvalidator("ai_actions", [["ai-commands"]]);
   return useQuery({
     queryKey: ["ai-commands", filters],
@@ -144,5 +166,23 @@ export function useAiAnalysisHistory(sourceType: string, sourceId: string, analy
     queryFn: () => aiAnalysisApi.listForSource(sourceType, sourceId, analysisType),
     enabled: !!sourceId,
     staleTime: 30_000,
+  });
+}
+
+export function useAiAnalysesList(filters?: {
+  analysis_type?: string;
+  source_type?: string;
+  server_id?: string;
+  from_date?: string;
+  to_date?: string;
+  page?: number;
+  page_size?: number;
+}) {
+  useWsInvalidator("ai_actions", [["ai-analyses-list"]]);
+  return useQuery({
+    queryKey: ["ai-analyses-list", filters],
+    queryFn: () => aiAnalysisApi.list(filters),
+    refetchInterval: 30_000,
+    placeholderData: (prev) => prev,
   });
 }

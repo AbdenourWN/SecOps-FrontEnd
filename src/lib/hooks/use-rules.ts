@@ -7,6 +7,13 @@ import { useWsInvalidator } from "@/lib/hooks/use-ws-invalidator";
 
 export function useRules(filters?: RuleFilters) {
   useWsInvalidator("rules", [["rules"]]);
+  // Phase 28.5 — when scoped to a server, also invalidate on that server's
+  // per-server rules topic so the per-server Rules tab refreshes live when
+  // an operator (or AI approval) inserts a new server-scoped rule elsewhere.
+  useWsInvalidator(
+    filters?.owner_id ? `servers.${filters.owner_id}.rules` : "rules",
+    [["rules"]],
+  );
   return useQuery({
     queryKey: ["rules", filters],
     queryFn: () => rulesApi.list(filters),
@@ -28,6 +35,21 @@ export function useCreateRule() {
   return useMutation({
     mutationFn: (data: DetectionRuleCreate) => rulesApi.create(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rules"] }),
+  });
+}
+
+// Phase 28.5 — pre-scope a rule to a server. Used by the per-server Rules tab.
+export function useCreateServerRule(serverId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: DetectionRuleCreate) =>
+      rulesApi.createForServer(serverId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rules"] });
+      // Re-fetch the server doc so the auto-flip to `both` (if any) lands
+      // in the UI without a manual reload.
+      qc.invalidateQueries({ queryKey: ["servers", serverId] });
+    },
   });
 }
 

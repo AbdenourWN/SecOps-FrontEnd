@@ -39,13 +39,25 @@ function MetricBlock({
 }
 
 function ServerCard({ server }: { server: ServerResponse }) {
-  const isOffline = server.status === "offline" || server.status === "reachable";
+  // Tri-state status: online / reachable / offline (or unknown).
+  // "reachable" = TCP works but credentials failed — distinct from offline.
+  const isOffline = server.status === "offline";
+  const isReachable = server.status === "reachable";
+  const isOnline = server.status === "online";
   const incidentCount = server.open_incidents_count ?? 0;
   const hasIncident = incidentCount > 0;
 
   const cpu = server.last_metrics?.cpu_usage ?? 0;
   const ram = server.last_metrics?.ram_usage ?? 0;
   const disk = server.last_metrics?.disk_usage ?? 0;
+
+  const pillClass = isOnline
+    ? "border-success/40 text-success bg-success/10"
+    : isReachable
+      ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
+      : "border-danger/40 text-danger bg-danger/10";
+  const dotClass = isOnline ? "bg-success" : isReachable ? "bg-amber-400" : "bg-danger";
+  const pillLabel = isOnline ? "ONLINE" : isReachable ? "REACHABLE" : isOffline ? "OFFLINE" : "UNKNOWN";
 
   return (
     <Link
@@ -54,9 +66,11 @@ function ServerCard({ server }: { server: ServerResponse }) {
         "block rounded-xl border p-5 transition-all hover:shadow-md",
         isOffline
           ? "border-danger/40 bg-danger/5"
-          : hasIncident
-            ? "border-warning/40 bg-warning/5"
-            : "border-border bg-green-700/10 hover:border-green-700/30",
+          : isReachable
+            ? "border-amber-500/40 bg-amber-500/5"
+            : hasIncident
+              ? "border-warning/40 bg-warning/5"
+              : "border-border bg-green-700/10 hover:border-green-700/30",
       )}
     >
       {/* Header: icon + hostname/ip + status */}
@@ -76,21 +90,9 @@ function ServerCard({ server }: { server: ServerResponse }) {
             </p>
           </div>
         </div>
-        <div
-          className={cn(
-            "shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold",
-            isOffline
-              ? "border-danger/40 text-danger bg-danger/10"
-              : "border-success/40 text-success bg-success/10",
-          )}
-        >
-          {isOffline ? "OFFLINE" : "ONLINE"}
-          <span
-            className={cn(
-              "h-1.5 w-1.5 rounded-full",
-              isOffline ? "bg-danger" : "bg-success",
-            )}
-          />
+        <div className={cn("shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold", pillClass)}>
+          {pillLabel}
+          <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} />
         </div>
       </div>
 
@@ -138,6 +140,10 @@ export function ServerHealthGrid() {
   const servers = serversData?.results ?? [];
   const [filter, setFilter] = useState<Filter>("all");
 
+  const onlineCount = servers.filter((s) => s.status === "online").length;
+  const reachableCount = servers.filter((s) => s.status === "reachable").length;
+  const offlineCount = servers.filter((s) => s.status === "offline").length;
+
   const displayed = servers.filter((s) =>
     filter === "all"
       ? true
@@ -150,8 +156,20 @@ export function ServerHealthGrid() {
         <div>
           <h2 className="text-sm font-bold">Server Health Overview</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {servers.filter((s) => s.status === "online").length} /{" "}
-            {servers.length} nodes online
+            <span className="text-success font-semibold">{onlineCount} online</span>
+            {reachableCount > 0 && (
+              <>
+                {" · "}
+                <span className="text-amber-400 font-semibold">{reachableCount} reachable</span>
+              </>
+            )}
+            {offlineCount > 0 && (
+              <>
+                {" · "}
+                <span className="text-danger font-semibold">{offlineCount} offline</span>
+              </>
+            )}
+            {" · "}{servers.length} total
           </p>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 text-xs">

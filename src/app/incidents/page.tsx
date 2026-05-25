@@ -8,6 +8,7 @@ import { Shield, AlertTriangle, CheckCircle, Flame, Search, Activity } from "luc
 import { timeAgo, cn } from "@/lib/utils";
 import Link from "next/link";
 import type { SeverityLevel, IncidentStatus } from "@/lib/types";
+import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
 
 const PAGE_SIZE = 10;
 
@@ -16,10 +17,12 @@ export default function IncidentsPage() {
   const [search, setSearch] = useState("");
   const [filterSeverity, setFilterSeverity] = useState<SeverityLevel | "all">("all");
   const [filterStatus, setFilterStatus] = useState<IncidentStatus | "all">("all");
+  const [dateRange, setDateRange] = useState<DateRange>({});
   const [page, setPage] = useState(1);
 
   const setSeverityAndReset = (v: SeverityLevel | "all") => { setFilterSeverity(v); setPage(1); };
   const setStatusAndReset = (v: IncidentStatus | "all") => { setFilterStatus(v); setPage(1); };
+  const setDateAndReset = (v: DateRange) => { setDateRange(v); setPage(1); };
   const executeSearch = () => { setSearch(searchInput); setPage(1); };
 
   const { data: stats } = useIncidentStats();
@@ -30,6 +33,8 @@ export default function IncidentsPage() {
     severity: filterSeverity === "all" ? undefined : filterSeverity,
     status: filterStatus === "all" ? undefined : filterStatus,
     search: search || undefined,
+    from_date: dateRange.from ?? undefined,
+    to_date: dateRange.to ?? undefined,
     page,
     page_size: PAGE_SIZE,
   });
@@ -139,6 +144,8 @@ export default function IncidentsPage() {
               </button>
             ))}
           </div>
+
+          <DateRangeFilter value={dateRange} onChange={setDateAndReset} />
         </div>
 
         {/* Incident List */}
