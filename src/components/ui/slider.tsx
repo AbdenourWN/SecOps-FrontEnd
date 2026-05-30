@@ -24,8 +24,16 @@ function Slider({
 }: SliderProps) {
   return (
     <SliderPrimitive.Root
-      value={[value]}
-      onValueChange={(values: number[]) => onValueChange(values[0])}
+      // Canonical single-value mode: pass the number directly. Wrapping in
+      // `[value]` put base-ui into RANGE mode with a single thumb — a degenerate
+      // config whose range-specific pointer machinery (closest-thumb detection +
+      // collision handling) is the suspected cause of the thumb not dragging.
+      // A plain number uses the simpler single-thumb path. The callback is
+      // unwrapped defensively in case any base-ui path still hands back an array.
+      value={value}
+      onValueChange={(next: number | readonly number[]) =>
+        onValueChange(Array.isArray(next) ? next[0] : (next as number))
+      }
       min={min}
       max={max}
       step={step}

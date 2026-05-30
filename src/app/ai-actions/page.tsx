@@ -38,6 +38,8 @@ const ACTION_LABELS: Record<string, string> = {
   create_server_rule: "Create Server-Scoped Rule",
   create_server_script: "Create Server-Scoped Script",
   swap_remediation_script: "Swap Remediation Script for This Server",
+  // Phase 28.5.4 — atomic rule+script pair
+  create_server_rule_with_script: "Create Server-Scoped Rule + Script (Linked Pair)",
 };
 
 function StatusBadge({ status }: { status: AiActionStatus }) {
@@ -57,6 +59,113 @@ function StatusBadge({ status }: { status: AiActionStatus }) {
     <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20">
       <XCircle className="h-3 w-3" /> Rejected
     </span>
+  );
+}
+
+// Renders a single payload key/value with the same special-cases used across
+// every action type: manual_commands as a nested list, long script bodies /
+// regex patterns as code blocks, string arrays joined, objects stringified.
+function renderPayloadField(k: string, v: unknown): React.ReactNode {
+  if (k === "manual_commands" && Array.isArray(v)) {
+    return (
+      <div key={k}>
+        <span className="text-muted-foreground">{k}:</span>
+        <ul className="mt-1 space-y-1 pl-2 border-l border-border/60">
+          {(v as Array<{ command?: string; purpose?: string }>).map((mc, i) => (
+            <li key={i} className="space-y-0.5">
+              <code className="text-violet-300 break-all">
+                {mc.command || "(no command)"}
+              </code>
+              {mc.purpose && (
+                <div className="text-[11px] text-muted-foreground font-sans">
+                  {mc.purpose}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+  if (
+    (k === "content" || k === "new_script_content" || k === "pattern") &&
+    typeof v === "string" &&
+    v.length > 0
+  ) {
+    return (
+      <div key={k}>
+        <span className="text-muted-foreground">{k}:</span>
+        <pre className="mt-1 max-h-72 overflow-auto rounded-md bg-zinc-950 border border-border/60 p-2 text-[11px] text-zinc-200 whitespace-pre-wrap break-all">
+{String(v)}
+        </pre>
+      </div>
+    );
+  }
+  if (Array.isArray(v) && v.every((x) => typeof x === "string")) {
+    return (
+      <div key={k}>
+        <span className="text-muted-foreground">{k}:</span>{" "}
+        <span className="text-foreground">{(v as string[]).join(", ") || "—"}</span>
+      </div>
+    );
+  }
+  if (typeof v === "object" && v !== null) {
+    return (
+      <div key={k}>
+        <span className="text-muted-foreground">{k}:</span>{" "}
+        <span className="text-foreground break-all">{JSON.stringify(v)}</span>
+      </div>
+    );
+  }
+  return (
+    <div key={k}>
+      <span className="text-muted-foreground">{k}:</span>{" "}
+      <span className="text-foreground">{String(v)}</span>
+    </div>
+  );
+}
+
+// Phase 28.5.4 — the pair action carries both rule and script fields in one
+// flat payload. Split them into two labelled sub-blocks so the operator can
+// see "what detects" vs "what remediates" at a glance.
+const PAIR_RULE_FIELDS = [
+  "rule_name",
+  "pattern",
+  "severity",
+  "action_level",
+  "rule_description",
+  "os_type",
+  "tags",
+];
+const PAIR_SCRIPT_FIELDS = [
+  "script_name",
+  "script_description",
+  "language",
+  "content",
+  "target_os",
+  "category",
+];
+
+function PairPayload({ payload }: { payload: Record<string, unknown> }) {
+  const present = (keys: string[]) =>
+    keys.filter((k) => payload[k] !== undefined && payload[k] !== null && payload[k] !== "");
+  const ruleKeys = present(PAIR_RULE_FIELDS);
+  const scriptKeys = present(PAIR_SCRIPT_FIELDS);
+  return (
+    <div className="rounded-lg bg-muted/30 border border-border px-3 py-2 text-xs font-mono space-y-3">
+      <div className="space-y-0.5">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-blue-300/80 font-sans">
+          Detection rule
+        </p>
+        {ruleKeys.map((k) => renderPayloadField(k, payload[k]))}
+      </div>
+      <div className="space-y-0.5 border-t border-border/60 pt-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-violet-300/80 font-sans">
+          Remediation script
+        </p>
+        {scriptKeys.map((k) => renderPayloadField(k, payload[k]))}
+      </div>
+    </div>
   );
 }
 
@@ -123,90 +232,38 @@ function ActionCard({ action }: { action: AiPendingAction }) {
         </div>
       </div>
 
-      {/* Payload */}
-      <div className="rounded-lg bg-muted/30 border border-border px-3 py-2 text-xs font-mono space-y-0.5">
-        {Object.entries(action.payload).map(([k, v]) => {
-          // Phase 28.4 — `manual_commands` array (from suggest_manual_remediation)
-          // gets a dedicated nested renderer so it doesn't stringify to
-          // "[object Object],…". Other arrays/objects fall back to JSON.stringify
-          // which is at least readable.
-          if (k === "manual_commands" && Array.isArray(v)) {
-            return (
-              <div key={k}>
-                <span className="text-muted-foreground">{k}:</span>
-                <ul className="mt-1 space-y-1 pl-2 border-l border-border/60">
-                  {(v as Array<{ command?: string; purpose?: string }>).map(
-                    (mc, i) => (
-                      <li key={i} className="space-y-0.5">
-                        <code className="text-violet-300 break-all">
-                          {mc.command || "(no command)"}
-                        </code>
-                        {mc.purpose && (
-                          <div className="text-[11px] text-muted-foreground font-sans">
-                            {mc.purpose}
-                          </div>
-                        )}
-                      </li>
-                    ),
-                  )}
-                </ul>
-              </div>
-            );
-          }
-          // Phase 28.5 — render long script bodies / regex patterns in a
-          // dedicated code block instead of inlining them next to the field
-          // label. These come from create_server_rule / create_server_script
-          // / swap_remediation_script payloads.
-          if (
-            (k === "content" || k === "new_script_content" || k === "pattern")
-            && typeof v === "string" && v.length > 0
-          ) {
-            return (
-              <div key={k}>
-                <span className="text-muted-foreground">{k}:</span>
-                <pre className="mt-1 max-h-72 overflow-auto rounded-md bg-zinc-950 border border-border/60 p-2 text-[11px] text-zinc-200 whitespace-pre-wrap break-all">
-{String(v)}
-                </pre>
-              </div>
-            );
-          }
-          if (Array.isArray(v) && v.every((x) => typeof x === "string")) {
-            return (
-              <div key={k}>
-                <span className="text-muted-foreground">{k}:</span>{" "}
-                <span className="text-foreground">{(v as string[]).join(", ") || "—"}</span>
-              </div>
-            );
-          }
-          if (typeof v === "object" && v !== null) {
-            return (
-              <div key={k}>
-                <span className="text-muted-foreground">{k}:</span>{" "}
-                <span className="text-foreground break-all">
-                  {JSON.stringify(v)}
-                </span>
-              </div>
-            );
-          }
-          return (
-            <div key={k}>
-              <span className="text-muted-foreground">{k}:</span>{" "}
-              <span className="text-foreground">{String(v)}</span>
-            </div>
-          );
-        })}
-      </div>
+      {/* Payload — the pair action splits into rule/script sub-blocks; every
+          other action renders its flat payload via the shared field renderer. */}
+      {action.action_type === "create_server_rule_with_script" ? (
+        <PairPayload payload={action.payload} />
+      ) : (
+        <div className="rounded-lg bg-muted/30 border border-border px-3 py-2 text-xs font-mono space-y-0.5">
+          {Object.entries(action.payload).map(([k, v]) => renderPayloadField(k, v))}
+        </div>
+      )}
 
       {/* Phase 28.5 — auto-flip info badge for create_server_* and swap actions.
           Tells the operator that approving on a global-mode server will
           transparently switch it to `both`. */}
       {(action.action_type === "create_server_rule"
         || action.action_type === "create_server_script"
-        || action.action_type === "swap_remediation_script") && (
+        || action.action_type === "swap_remediation_script"
+        || action.action_type === "create_server_rule_with_script") && (
         <div className="text-[11px] text-blue-300/80 bg-blue-500/5 border border-blue-500/20 rounded-md px-3 py-1.5">
-          Approving will insert this into the server&apos;s private library. If the
-          server&apos;s library mode is still <b>Global only</b>, it will switch to
-          <b> Both</b> automatically so the new entry takes effect.
+          {action.action_type === "create_server_rule_with_script" ? (
+            <>
+              Approving inserts both the rule and its linked script into the
+              server&apos;s private library. If either library mode is still{" "}
+              <b>Global only</b>, it switches to <b>Both</b> automatically so the
+              new pair takes effect.
+            </>
+          ) : (
+            <>
+              Approving will insert this into the server&apos;s private library. If
+              the server&apos;s library mode is still <b>Global only</b>, it will
+              switch to <b>Both</b> automatically so the new entry takes effect.
+            </>
+          )}
         </div>
       )}
 

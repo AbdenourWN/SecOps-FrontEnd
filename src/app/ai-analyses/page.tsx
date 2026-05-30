@@ -28,6 +28,7 @@ const ANALYSIS_TYPE_LABEL: Record<AiAnalysisType, string> = {
   server_overview: "Server Overview",
   script_execution_review: "Script Review",
   command_impact: "Command Impact",
+  app_overview: "Platform Overview",
 };
 
 const ANALYSIS_TYPE_COLOR: Record<AiAnalysisType, string> = {
@@ -36,6 +37,7 @@ const ANALYSIS_TYPE_COLOR: Record<AiAnalysisType, string> = {
   server_overview: "bg-violet-500/10 text-violet-400 border-violet-500/20",
   script_execution_review: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   command_impact: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  app_overview: "bg-blue-500/10 text-blue-400 border-blue-500/20",
 };
 
 const ANALYSIS_TYPES: (AiAnalysisType | "all")[] = [
@@ -45,9 +47,11 @@ const ANALYSIS_TYPES: (AiAnalysisType | "all")[] = [
   "command_impact",
   "server_overview",
   "script_execution_review",
+  "app_overview",
 ];
 
 function sourceHref(a: AiAnalysis): string | null {
+  if (a.source_type === "app") return "/";
   if (!a.source_id) return null;
   if (a.source_type === "incident") return `/incidents/${a.source_id}`;
   if (a.source_type === "anomaly") return `/anomalies/${a.source_id}`;
@@ -57,6 +61,7 @@ function sourceHref(a: AiAnalysis): string | null {
 }
 
 function sourceLabel(a: AiAnalysis): string {
+  if (a.source_type === "app") return "Platform";
   if (!a.source_id) return "—";
   const short = a.source_id.slice(-8);
   if (a.source_type === "incident") return `Incident ${short}`;
@@ -237,7 +242,7 @@ export default function AiAnalysesPage() {
           </div>
           <p className="text-sm text-muted-foreground">
             Every analysis the AI agent has produced — triage reports for incidents and anomalies, command-impact reviews,
-            and server overviews. Click any row to see the full report.
+            server overviews, and whole-platform overviews. Click any row to see the full report.
           </p>
         </div>
 

@@ -76,6 +76,10 @@ export function useAiAnalysisStream(
   sourceId: string,
   serverId: string | undefined,
   isRunning: boolean,
+  // Optional WS topic override. Defaults to the per-server `servers.{id}.ai`
+  // topic. App-wide surfaces (e.g. the dashboard overview) pass a fixed topic
+  // like "app.ai" since they have no serverId.
+  topicOverride?: string,
 ): AiStreamResult {
   const key = `${sourceType}:${sourceId}`;
 
@@ -133,8 +137,8 @@ export function useAiAnalysisStream(
   }, [isRunning]);
 
   useEffect(() => {
-    if (!serverId || !sourceId) return;
-    const topic = `servers.${serverId}.ai`;
+    const topic = topicOverride ?? (serverId ? `servers.${serverId}.ai` : null);
+    if (!topic || !sourceId) return;
 
     const handler = (payload: unknown, event: string) => {
       const p = payload as Record<string, string>;
@@ -212,7 +216,7 @@ export function useAiAnalysisStream(
 
     return wsClient.subscribe(topic, handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverId, sourceId, sourceType, key]);
+  }, [serverId, sourceId, sourceType, key, topicOverride]);
 
   return { streamedMarkdown, gapDetected, streamCompleted };
 }

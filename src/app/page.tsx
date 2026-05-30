@@ -4,7 +4,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { ServerHealthGrid } from "@/components/dashboard/server-health-grid";
 import { RecentIncidents } from "@/components/dashboard/recent-incidents";
-import { SeverityTrendChart } from "@/components/dashboard/severity-trend-chart";
+import { AiOverview } from "@/components/dashboard/ai-overview";
 import { SystemActivity } from "@/components/dashboard/system-activity";
 import { FooterBar } from "@/components/dashboard/footer-bar";
 
@@ -17,10 +17,10 @@ export default function DashboardPage() {
 
         {/* Main content: Server grid + Incidents feed */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left 2/3: Server health + Trend chart */}
+          {/* Left 2/3: Server health + AI platform overview */}
           <div className="lg:col-span-2 space-y-6">
             <ServerHealthGrid />
-            <SeverityTrendChart />
+            <AiOverview />
           </div>
 
           {/* Right 1/3: Recent incidents + Activity */}

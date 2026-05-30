@@ -58,7 +58,7 @@ export interface DetectionConfig {
   anomaly_dedup_window_hours?: number;    // 0.25–24, default 2h
   anomaly_suppression_ttl_hours?: number; // 1–168, default 24h
   anomaly_auto_promote?: boolean;         // default false — promote high-confidence anomalies automatically
-  script_review_enabled?: boolean;        // default true — Phase 28.4 AI review after every L1/L2 remediation
+  script_review_enabled?: boolean;        // default false — Phase 28.4 AI review after every L1/L2 remediation
 }
 
 export interface ServerCreate {
@@ -333,7 +333,9 @@ export type AiActionType =
   // Phase 28.5 — per-server library actions
   | "create_server_rule"
   | "create_server_script"
-  | "swap_remediation_script";
+  | "swap_remediation_script"
+  // Phase 28.5.4 — atomic rule+script pair
+  | "create_server_rule_with_script";
 
 export interface AiPendingAction {
   _id: string;
@@ -438,7 +440,8 @@ export type AiAnalysisType =
   | "anomaly_triage"
   | "server_overview"
   | "script_execution_review"
-  | "command_impact";
+  | "command_impact"
+  | "app_overview";
 
 export interface AiAnalysis {
   _id: string;
@@ -489,6 +492,18 @@ export interface DashboardSummary {
   logs: { total: number };
   rules: { total: number };
   scripts: { total: number };
+}
+
+// Phase 28.7 — app-wide AI overview (dashboard). Persisted ai_analysis row of
+// type "app_overview"; null when none has been generated yet.
+export interface AppOverview {
+  _id: string;
+  run_id: string;
+  summary: string;
+  markdown: string;
+  created_at: string;
+  llm_provider?: string;
+  llm_model?: string;
 }
 
 // ── Logs ─────────────────────────────────────────────────────
@@ -706,4 +721,19 @@ export interface NotificationConfig {
   smtp_port?: number;
   smtp_user?: string;
   smtp_password?: string;
+}
+
+// Phase 28.6 — runtime LLM provider/model override, surfaced on the Settings tab.
+export type LlmProvider = "openrouter" | "anthropic" | "openai";
+
+export interface LlmConfig {
+  provider: LlmProvider;
+  model: string;
+  env_default_provider: string;
+  env_default_model: string;
+}
+
+export interface LlmConfigUpdate {
+  provider: LlmProvider;
+  model: string;
 }

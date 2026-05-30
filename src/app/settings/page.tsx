@@ -8,6 +8,8 @@ import {
   useSaveNotificationConfig,
   useNotificationConfigs,
   useTestNotification,
+  useLlmConfig,
+  useSaveLlmConfig,
 } from "@/lib/hooks/use-notifications";
 import {
   useSystemSettings,
@@ -18,7 +20,7 @@ import {
   Settings,
   User,
   Palette,
-  Bell,
+  SlidersHorizontal,
   Globe,
   Mail,
   Send,
@@ -28,9 +30,10 @@ import {
   Monitor,
   Check,
   Cpu,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { SeverityLevel } from "@/lib/types";
+import type { SeverityLevel, LlmProvider } from "@/lib/types";
 import {
   Select,
   SelectContent,
@@ -40,12 +43,12 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 
-type Tab = "profile" | "appearance" | "notifications" | "system" | "api";
+type Tab = "profile" | "appearance" | "settings" | "system" | "api";
 
 const tabs: { id: Tab; label: string; icon: typeof Settings }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "settings", label: "Settings", icon: SlidersHorizontal },
   { id: "system", label: "System", icon: Cpu },
   { id: "api", label: "API & Integrations", icon: Globe },
 ];
@@ -96,7 +99,12 @@ export default function SettingsPage() {
           <div className="flex-1 min-w-0">
             {activeTab === "profile" && <ProfileSection />}
             {activeTab === "appearance" && <AppearanceSection />}
-            {activeTab === "notifications" && <NotificationsSection />}
+            {activeTab === "settings" && (
+              <div className="space-y-6">
+                <LlmSection />
+                <NotificationsSection />
+              </div>
+            )}
             {activeTab === "system" && <SystemSection />}
             {activeTab === "api" && <ApiSection />}
           </div>
@@ -201,6 +209,137 @@ function AppearanceSection() {
         </div>
       </SectionCard>
     </div>
+  );
+}
+
+/* ─── AI Model (LLM provider/model override) ───────────────── */
+
+const LLM_PROVIDERS: { value: LlmProvider; label: string; hint: string }[] = [
+  { value: "openrouter", label: "OpenRouter", hint: "One key → ~300 models (e.g. google/gemini-3-flash-preview)" },
+  { value: "anthropic", label: "Anthropic", hint: "Direct Claude API (e.g. claude-sonnet-4-6)" },
+  { value: "openai", label: "OpenAI", hint: "Direct OpenAI API (e.g. gpt-5)" },
+];
+
+function LlmSection() {
+  const { data, isLoading } = useLlmConfig();
+  const saveLlm = useSaveLlmConfig();
+
+  // Null = "not touched, use the loaded value". Lets the form hydrate from the
+  // query without an effect (render-time fallback to data).
+  const [provider, setProvider] = useState<LlmProvider | null>(null);
+  const [model, setModel] = useState<string | null>(null);
+
+  const activeProvider = provider ?? data?.provider ?? "openrouter";
+  const activeModel = model ?? data?.model ?? "";
+
+  const isDirty =
+    (provider !== null && provider !== data?.provider) ||
+    (model !== null && model.trim() !== data?.model);
+
+  const usingEnvDefault =
+    data != null &&
+    data.provider === data.env_default_provider &&
+    data.model === data.env_default_model;
+
+  const handleSave = async () => {
+    const trimmed = activeModel.trim();
+    if (!trimmed) {
+      toast.error("Model is required");
+      return;
+    }
+    try {
+      await saveLlm.mutateAsync({ provider: activeProvider, model: trimmed });
+      setProvider(null);
+      setModel(null);
+      toast.success("AI model updated — applies to new analyses immediately");
+    } catch (e) {
+      toast.error((e as Error).message || "Failed to update AI model");
+    }
+  };
+
+  const selectedHint = LLM_PROVIDERS.find((p) => p.value === activeProvider)?.hint;
+
+  return (
+    <SectionCard
+      title="AI Model"
+      description="Pick the LLM provider and model used by every AI analysis (triage, anomaly, server overview, script review). Applied live — no restart."
+    >
+      {isLoading ? (
+        <div className="space-y-4">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="h-12 rounded-xl bg-muted/60 animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/30 border border-border">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+              <Bot className="h-4 w-4" />
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Provider API keys stay in the server&apos;s <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">.env</code> file.
+              This only switches which provider/model the agents call — the matching key must already be configured.
+            </p>
+          </div>
+
+          <FieldGroup label="Provider">
+            <Select
+              value={activeProvider}
+              onValueChange={(v) => setProvider(v as LlmProvider)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LLM_PROVIDERS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedHint && (
+              <p className="text-[11px] text-muted-foreground mt-1">{selectedHint}</p>
+            )}
+          </FieldGroup>
+
+          <FieldGroup label="Model">
+            <input
+              value={activeModel}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder="google/gemini-3-flash-preview"
+              className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm font-mono"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {usingEnvDefault ? (
+                <>Using environment default. No DB override active.</>
+              ) : (
+                <>
+                  Active override. Environment default:{" "}
+                  <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">
+                    {data?.env_default_provider} / {data?.env_default_model}
+                  </code>
+                </>
+              )}
+            </p>
+          </FieldGroup>
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              onClick={handleSave}
+              disabled={!isDirty || saveLlm.isPending}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all text-sm font-semibold shadow-lg shadow-primary/20 disabled:opacity-40"
+            >
+              <Save className="h-4 w-4" />
+              {saveLlm.isPending ? "Saving..." : "Save AI Model"}
+            </button>
+            {isDirty && (
+              <span className="text-xs text-muted-foreground">Unsaved changes</span>
+            )}
+          </div>
+        </div>
+      )}
+    </SectionCard>
   );
 }
 

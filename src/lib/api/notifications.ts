@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api";
-import type { NotificationConfig } from "@/lib/types";
+import type { NotificationConfig, LlmConfig, LlmConfigUpdate } from "@/lib/types";
 
 export const notificationsApi = {
   getConfigs: () =>
@@ -13,4 +13,10 @@ export const notificationsApi = {
 
   sendTest: () =>
     apiClient.post<{ status: string }>("/api/notifications/test"),
+
+  // Phase 28.6 — runtime LLM provider/model override
+  getLlmConfig: () => apiClient.get<LlmConfig>("/api/notifications/llm"),
+
+  saveLlmConfig: (data: LlmConfigUpdate) =>
+    apiClient.put<LlmConfig>("/api/notifications/llm", data),
 };

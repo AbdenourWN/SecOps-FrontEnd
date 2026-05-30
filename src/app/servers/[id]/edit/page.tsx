@@ -219,7 +219,7 @@ const DETECTION_FIELDS: DetectionField[] = [
     key: "script_review_enabled",
     label: "AI Script Execution Review",
     type: "boolean",
-    default: true,
+    default: false,
     summary:
       "Run an AI review after every L1/L2 remediation script execution on this server. The review reads pre/post snapshots + stdout/stderr and judges whether the fix actually addressed the root cause (resolved / partial / no_effect / made_worse). Verdict appears on the Remediation History page and the incident detail page.",
     detail:
@@ -234,7 +234,7 @@ const DETECTION_FIELDS: DetectionField[] = [
 const DETECTION_DEFAULTS: Record<string, number | boolean> = {
   ...Object.fromEntries(DETECTION_FIELDS.map((f) => [f.key, f.default])),
   anomaly_auto_promote: false,
-  script_review_enabled: true,
+  script_review_enabled: false,
 };
 
 // ─── Page ─────────────────────────────────────────────────────────────────────

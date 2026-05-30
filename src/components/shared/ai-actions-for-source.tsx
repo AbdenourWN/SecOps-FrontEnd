@@ -33,6 +33,8 @@ const ACTION_LABELS: Record<string, string> = {
   create_server_rule: "Create Server-Scoped Rule",
   create_server_script: "Create Server-Scoped Script",
   swap_remediation_script: "Swap Remediation Script for This Server",
+  // Phase 28.5.4 — atomic rule+script pair
+  create_server_rule_with_script: "Create Server-Scoped Rule + Script (Linked Pair)",
 };
 
 // Friendly one-line explanation of what each action does when approved.
@@ -57,6 +59,8 @@ const ACTION_DESCRIPTIONS: Record<string, string> = {
     "Insert a new private remediation script scoped to this server only.",
   swap_remediation_script:
     "Add a server-scoped replacement script that overrides the global one by name.",
+  create_server_rule_with_script:
+    "Insert a new private detection rule AND its remediation script, linked together — both scoped to this server only.",
 };
 
 function StatusBadge({ status }: { status: AiActionStatus }) {
@@ -101,7 +105,8 @@ function ActionRow({ action }: { action: AiPendingAction }) {
   const isLibraryAction =
     action.action_type === "create_server_rule" ||
     action.action_type === "create_server_script" ||
-    action.action_type === "swap_remediation_script";
+    action.action_type === "swap_remediation_script" ||
+    action.action_type === "create_server_rule_with_script";
 
   const handleApprove = async () => {
     try {
