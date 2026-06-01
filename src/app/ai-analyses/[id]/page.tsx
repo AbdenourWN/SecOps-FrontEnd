@@ -18,25 +18,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { cn } from "@/lib/utils";
 import { useAiAnalysis } from "@/lib/hooks/use-ai-actions";
 import { useServer } from "@/lib/hooks/use-servers";
-import type { AiAnalysis, AiAnalysisType } from "@/lib/types";
-
-const ANALYSIS_TYPE_LABEL: Record<AiAnalysisType, string> = {
-  incident_triage: "Incident Triage",
-  anomaly_triage: "Anomaly Triage",
-  server_overview: "Server Overview",
-  script_execution_review: "Script Review",
-  command_impact: "Command Impact",
-  app_overview: "Platform Overview",
-};
-
-const ANALYSIS_TYPE_COLOR: Record<AiAnalysisType, string> = {
-  incident_triage: "bg-red-500/10 text-red-400 border-red-500/20",
-  anomaly_triage: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-  server_overview: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-  script_execution_review: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  command_impact: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  app_overview: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-};
+import type { AiAnalysis } from "@/lib/types";
+import { ANALYSIS_TYPE_LABEL, ANALYSIS_TYPE_COLOR } from "@/lib/constants";
 
 function sourceHref(a: AiAnalysis): string | null {
   if (a.source_type === "app") return "/";

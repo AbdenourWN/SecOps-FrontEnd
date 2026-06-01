@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import {
   Activity,
   ArrowRight,
@@ -95,7 +96,7 @@ export default function AnomaliesPage() {
       await dismissMutation.mutateAsync(obs._id);
       toast.success("Anomaly dismissed");
     } catch (err) {
-      toast.error((err as Error).message ?? "Failed to dismiss");
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -112,7 +113,7 @@ export default function AnomaliesPage() {
         },
       });
     } catch (err) {
-      toast.error((err as Error).message ?? "Failed to promote");
+      toast.error(getFriendlyMessage(err));
     }
   };
 

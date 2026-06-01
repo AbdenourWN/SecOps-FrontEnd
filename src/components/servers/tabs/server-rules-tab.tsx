@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Plus, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import { useRules, useCreateServerRule, useDeleteRule } from "@/lib/hooks/use-rules";
 import { useServer } from "@/lib/hooks/use-servers";
 import { cn } from "@/lib/utils";
@@ -91,7 +92,7 @@ export function ServerRulesTab({ serverId }: ServerRulesTabProps) {
       setShowForm(false);
       resetForm();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -102,7 +103,7 @@ export function ServerRulesTab({ serverId }: ServerRulesTabProps) {
       toast.success("Rule deleted");
       setDeleteTarget(null);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

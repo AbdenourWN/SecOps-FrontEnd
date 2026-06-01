@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useExecuteCommand } from "@/lib/hooks/use-servers";
 import { Play } from "lucide-react";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 
 interface ExecuteCommandProps {
   serverId: string;
@@ -27,9 +28,7 @@ export function ExecuteCommand({ serverId }: ExecuteCommandProps) {
       });
       setOutput(result.output ?? result.error ?? "");
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to execute command"
-      );
+      toast.error(getFriendlyMessage(err));
     }
   };
 

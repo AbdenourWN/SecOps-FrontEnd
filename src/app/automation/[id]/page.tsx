@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
+import { getFriendlyMessage } from "@/lib/errors";
 import { useScript, useUpdateScript, useRemediationHistory } from "@/lib/hooks/use-scripts";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -85,7 +86,7 @@ export default function ScriptDetailPage({
       toast.success("Script updated");
       setEditing(false);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

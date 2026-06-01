@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2, ClipboardCopy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RISK_STYLES as RISK_PILL } from "@/lib/constants";
 
 /**
  * Manual diagnostic / remediation command card.
@@ -16,12 +17,6 @@ import { cn } from "@/lib/utils";
  * The extended fields are all optional, so the legacy call sites keep working
  * unchanged after the extract.
  */
-
-const RISK_PILL: Record<string, string> = {
-  low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  medium: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  high: "bg-red-500/10 text-red-400 border-red-500/20",
-};
 
 export interface ManualCommandCardProps {
   command: string;

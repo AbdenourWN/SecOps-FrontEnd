@@ -41,6 +41,7 @@ export default function RootLayout({
           <QueryProvider>
             <AuthProvider>
               {children}
+              {/* Default toaster — app feedback toasts (errors, confirmations). */}
               <Toaster
                 position="bottom-right"
                 richColors
@@ -50,6 +51,9 @@ export default function RootLayout({
                   },
                 }}
               />
+              {/* Dedicated toaster for in-app notification pop-ups (top-right).
+                  Routed to via toast.custom(..., { toasterId: "notifications" }). */}
+              <Toaster id="notifications" position="top-right" closeButton />
             </AuthProvider>
           </QueryProvider>
         </ThemeProvider>

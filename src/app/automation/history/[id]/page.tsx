@@ -5,6 +5,7 @@ import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -131,7 +132,7 @@ export default function RemediationRunDetailPage({
       toast.success("AI review started — usually 10–20s");
     } catch (err) {
       setAnalysisJustStarted(false);
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

@@ -14,11 +14,13 @@ import {
   Terminal,
   Settings,
   Telescope,
+  Bell,
   X,
 } from "lucide-react";
 import Image from "next/image";
 import { useAnomalyStats } from "@/lib/hooks/use-anomalies";
 import { useAiPendingCount, useAiCommandPendingCount } from "@/lib/hooks/use-ai-actions";
+import { useUnreadCount } from "@/lib/hooks/use-notification-feed";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -44,6 +46,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { data: mutationCount } = useAiPendingCount();
   const { data: commandCount } = useAiCommandPendingCount();
   const pendingAiActions = (mutationCount?.pending ?? 0) + (commandCount?.pending ?? 0);
+  const { data: unreadData } = useUnreadCount();
+  const unreadNotifications = unreadData?.count ?? 0;
 
   const navLink = (href: string, label: string, Icon: React.ElementType) => {
     const active =
@@ -95,6 +99,16 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             )}
           >
             {pendingAiActions > 99 ? "99+" : pendingAiActions}
+          </span>
+        )}
+        {label === "Notifications" && unreadNotifications > 0 && (
+          <span
+            className={cn(
+              "ml-auto flex h-4 min-w-4 items-center justify-center rounded-full text-[10px] font-bold px-1.5 tabular-nums",
+              active ? "bg-white/20 text-white" : "bg-danger/15 text-danger",
+            )}
+          >
+            {unreadNotifications > 99 ? "99+" : unreadNotifications}
           </span>
         )}
       </Link>
@@ -155,6 +169,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2 mb-2">
               System
             </p>
+            {navLink("/notifications", "Notifications", Bell)}
             {navLink("/settings", "Settings", Settings)}
           </div>
         </nav>

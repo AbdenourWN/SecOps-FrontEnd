@@ -1,6 +1,7 @@
 "use client";
 
 import { AppShell } from "@/components/layout/app-shell";
+import { getFriendlyMessage } from "@/lib/errors";
 import { useServer, useDeleteServer, useRecalculateStats } from "@/lib/hooks/use-servers";
 import { useIncidents } from "@/lib/hooks/use-incidents";
 import { useServerAnomaliesFiltered } from "@/lib/hooks/use-anomalies";
@@ -72,7 +73,7 @@ export default function ServerDetailPage({
       toast.success("Server deleted");
       router.push("/servers");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

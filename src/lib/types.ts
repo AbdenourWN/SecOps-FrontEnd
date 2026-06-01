@@ -737,3 +737,34 @@ export interface LlmConfigUpdate {
   provider: LlmProvider;
   model: string;
 }
+
+// ── In-app notifications (Phase 29 — persistent bell feed) ──────────────────
+// Mirrors NotificationOut in SecOps-Backend/app/modules/notifications/feed_schemas.py.
+export type NotificationCategory = "ai" | "incident" | "automation" | "anomaly" | "server";
+export type NotificationSeverity = "info" | "success" | "warning" | "error";
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  category: NotificationCategory;
+  severity: NotificationSeverity;
+  title: string;
+  body?: string | null;
+  link?: string | null;
+  server_id?: string | null;
+  user_id?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  read: boolean;
+  read_at?: string | null;
+  count: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface NotificationListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  results: AppNotification[];
+}

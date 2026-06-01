@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import {
   FileText,
   Plus,
@@ -108,7 +109,7 @@ export function LogSourcesTab({
       });
       toast.success(source.is_active ? "Source paused" : "Source resumed");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -119,7 +120,7 @@ export function LogSourcesTab({
       toast.success("Log source deleted");
       setDeleteTarget(null);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -338,7 +339,7 @@ function LogSourceFormModal({
     const err = validatePath(normalized, osType);
     if (err) {
       setPathError(err);
-      toast.error(err);
+      toast.error(getFriendlyMessage(err));
       return;
     }
 
@@ -364,7 +365,7 @@ function LogSourceFormModal({
       }
       onClose();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

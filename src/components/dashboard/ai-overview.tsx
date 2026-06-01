@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import { Sparkles, Loader2, RefreshCw, Bot } from "lucide-react";
 
 import { useAiOverview, useGenerateAiOverview } from "@/lib/hooks/use-dashboard";
@@ -30,7 +31,7 @@ export function AiOverview() {
 
   const isRunning = justStarted || generate.isPending;
 
-  const { streamedMarkdown, streamCompleted } = useAiAnalysisStream(
+  const { streamedMarkdown, streamCompleted, streamError } = useAiAnalysisStream(
     "app",
     "global",
     undefined,
@@ -48,6 +49,12 @@ export function AiOverview() {
     if (streamCompleted) refetch();
   }, [streamCompleted, refetch]);
 
+  // The generate POST is fire-and-forget, so a background failure only surfaces
+  // as the `error` field on the app.ai completion event — toast it when it lands.
+  useEffect(() => {
+    if (streamError) toast.error(streamError);
+  }, [streamError]);
+
   const savedMarkdown = overview?.markdown ?? "";
   const content = isRunning ? streamedMarkdown : savedMarkdown || streamedMarkdown;
   const hasContent = content.trim().length > 0;
@@ -60,7 +67,7 @@ export function AiOverview() {
       await generate.mutateAsync();
     } catch (err) {
       setJustStarted(false);
-      toast.error((err as Error).message || "Failed to start AI overview");
+      toast.error(getFriendlyMessage(err));
     }
   };
 

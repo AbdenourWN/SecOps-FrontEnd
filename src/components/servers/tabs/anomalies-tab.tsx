@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import {
   ArrowRight,
   CheckCircle,
@@ -84,7 +85,7 @@ export function AnomaliesTab({ serverId }: AnomaliesTabProps) {
       await dismissMutation.mutateAsync(obs._id);
       toast.success("Anomaly dismissed");
     } catch (err) {
-      toast.error((err as Error).message ?? "Failed to dismiss");
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -99,7 +100,7 @@ export function AnomaliesTab({ serverId }: AnomaliesTabProps) {
         },
       });
     } catch (err) {
-      toast.error((err as Error).message ?? "Failed to promote");
+      toast.error(getFriendlyMessage(err));
     }
   };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { getFriendlyMessage } from "@/lib/errors";
 import {
   Bot,
   Check,
@@ -113,7 +114,7 @@ function ActionRow({ action }: { action: AiPendingAction }) {
       await approve.mutateAsync(action._id);
       toast.success("Action approved and executed");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -122,7 +123,7 @@ function ActionRow({ action }: { action: AiPendingAction }) {
       await reject.mutateAsync(action._id);
       toast.success("Action rejected");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

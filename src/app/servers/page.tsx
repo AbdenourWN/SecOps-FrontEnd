@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { getFriendlyMessage } from "@/lib/errors";
 import {
   useServers,
   useDeleteServer,
@@ -132,7 +133,7 @@ export default function ServersPage() {
       resetDeployForm();
       setDeployOpen(false);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

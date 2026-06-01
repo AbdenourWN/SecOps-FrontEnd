@@ -19,10 +19,11 @@ import { useAnalyzeRemediationRun } from "@/lib/hooks/use-scripts";
 import { TypingCursor } from "@/components/shared/typing-cursor";
 import { SeverityBadge, timeAgo } from "@/components/shared/badges";
 import { cn } from "@/lib/utils";
+import { RISK_STYLES } from "@/lib/constants";
+import { STATUS_ICON } from "@/components/shared/command-status-icon";
 import {
   ArrowLeft,
   Brain,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardCopy,
@@ -36,8 +37,6 @@ import {
   FileText,
   ExternalLink,
   AlertTriangle,
-  XCircle,
-  ShieldAlert,
   WifiOff,
 } from "lucide-react";
 import type { AiCommand } from "@/lib/types";
@@ -54,27 +53,12 @@ import { use, useState } from "react";
 import { useAiAnalysisStream } from "@/lib/hooks/use-ai-stream";
 import { useStickToBottom } from "@/lib/hooks/use-stick-to-bottom";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import Link from "next/link";
 import type { IncidentStatus } from "@/lib/types";
 
 // ManualCommandCard now lives in @/components/shared/manual-command-card and is
 // shared with the anomaly detail page + the AI Overview tab on the server page.
-
-const RISK_STYLES: Record<string, string> = {
-  low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  medium: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  high: "bg-red-500/10 text-red-400 border-red-500/20",
-};
-
-const STATUS_ICON = {
-  pending: null,
-  approved: <Loader2 className="h-3 w-3 animate-spin text-blue-400" />,
-  executing: <Loader2 className="h-3 w-3 animate-spin text-blue-400" />,
-  completed: <CheckCircle2 className="h-3 w-3 text-emerald-400" />,
-  failed: <XCircle className="h-3 w-3 text-red-400" />,
-  blocked: <ShieldAlert className="h-3 w-3 text-red-400" />,
-  rejected: <XCircle className="h-3 w-3 text-muted-foreground" />,
-};
 
 function CommandCard({
   cmd,
@@ -226,7 +210,7 @@ export default function IncidentDetailPage({
       await approveCommands.mutateAsync({ command_ids: ids });
       toast.success(`${ids.length} command(s) queued for execution`);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -235,7 +219,7 @@ export default function IncidentDetailPage({
       await rejectCommands.mutateAsync({ command_ids: ids });
       toast.success(`${ids.length} command(s) dismissed`);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -244,7 +228,7 @@ export default function IncidentDetailPage({
       await updateStatus.mutateAsync({ id, status: newStatus });
       toast.success(`Status updated to ${newStatus.replace("_", " ")}`);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -253,7 +237,7 @@ export default function IncidentDetailPage({
       await aiAnalysis.mutateAsync(id);
       toast.success("AI analysis complete — see Suggested Commands below");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -807,7 +791,7 @@ function AutoFixReviewCard({
       await analyze.mutateAsync(latest.automation_log_id);
       toast.success("AI review started — usually 10–20s");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

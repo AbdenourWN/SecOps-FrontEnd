@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Brain, BrainCircuit, Loader2, RefreshCw, ServerOff, Terminal } from "lucide-react";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import { useServerAiOverview, useServerLatestOverview } from "@/lib/hooks/use-servers";
 import { useAiAnalysisStream } from "@/lib/hooks/use-ai-stream";
 import { useStickToBottom } from "@/lib/hooks/use-stick-to-bottom";
@@ -55,7 +56,7 @@ export function AiOverviewTab({ server }: AiOverviewTabProps) {
       await overview.mutateAsync({ id: server._id, hours });
       toast.success("Server overview ready");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

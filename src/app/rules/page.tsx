@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { getFriendlyMessage } from "@/lib/errors";
 import { useRules, useCreateRule, useDeleteRule } from "@/lib/hooks/use-rules";
 import { Plus, Trash2, Eye, LayoutGrid, Terminal, Shield, Search } from "lucide-react";
 import Link from "next/link";
@@ -76,7 +77,7 @@ export default function RulesPage() {
       toast.success("Detection rule deleted");
       setDeleteTarget(null);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
+import { getFriendlyMessage } from "@/lib/errors";
 import { useRule, useUpdateRule } from "@/lib/hooks/use-rules";
 import { SeverityBadge } from "@/components/shared/badges";
 import { timeAgo } from "@/lib/utils";
@@ -107,7 +108,7 @@ export default function RuleDetailPage({
       toast.success("Rule updated");
       setEditing(false);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -117,7 +118,7 @@ export default function RuleDetailPage({
       await updateRule.mutateAsync({ id, data: { enabled: !rule.enabled } });
       toast.success(`Rule ${rule.enabled ? "disabled" : "enabled"}`);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

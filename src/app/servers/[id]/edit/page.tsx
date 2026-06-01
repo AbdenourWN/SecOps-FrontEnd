@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -357,7 +358,7 @@ export default function EditServerPage({
       toast.success("Server updated");
       router.push(`/servers/${id}`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to update";
+      const msg = getFriendlyMessage(err);
       setError(msg);
       toast.error(msg);
     }
@@ -373,7 +374,7 @@ export default function EditServerPage({
         `Pattern warm-up restarted (${formatMinutes(warmupMinutes)})`,
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed");
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -382,7 +383,7 @@ export default function EditServerPage({
       await resetBaseline.mutateAsync(server!._id);
       toast.success("Log-rate baseline reset");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed");
+      toast.error(getFriendlyMessage(err));
     }
   };
 

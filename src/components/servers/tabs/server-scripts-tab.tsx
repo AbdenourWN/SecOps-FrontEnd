@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, Code2, Plus, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import { useScripts, useCreateServerScript, useDeleteScript } from "@/lib/hooks/use-scripts";
 import { useServer } from "@/lib/hooks/use-servers";
 import { cn } from "@/lib/utils";
@@ -80,7 +81,7 @@ export function ServerScriptsTab({ serverId }: ServerScriptsTabProps) {
       setShowForm(false);
       resetForm();
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -91,7 +92,7 @@ export function ServerScriptsTab({ serverId }: ServerScriptsTabProps) {
       toast.success("Script deleted");
       setDeleteTarget(null);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

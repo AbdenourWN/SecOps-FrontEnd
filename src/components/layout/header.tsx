@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Bell, Settings, Sun, Moon, Menu, Clock } from "lucide-react";
+import { Search, Settings, Sun, Moon, Menu, Clock } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/providers/auth-provider";
 import Link from "next/link";
+import { NotificationBell } from "@/components/layout/notification-bell";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -80,15 +81,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         </button>
 
         {/* Notification bell */}
-        <button
-          className="relative flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          aria-label="Notifications"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-danger text-[10px] font-bold text-white">
-            3
-          </span>
-        </button>
+        <NotificationBell />
 
         {/* Settings */}
         <Link

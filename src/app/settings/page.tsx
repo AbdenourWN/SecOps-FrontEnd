@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { getFriendlyMessage } from "@/lib/errors";
 import { useAuth } from "@/providers/auth-provider";
 import { useTheme } from "next-themes";
 import {
@@ -253,7 +254,7 @@ function LlmSection() {
       setModel(null);
       toast.success("AI model updated — applies to new analyses immediately");
     } catch (e) {
-      toast.error((e as Error).message || "Failed to update AI model");
+      toast.error(getFriendlyMessage(e));
     }
   };
 

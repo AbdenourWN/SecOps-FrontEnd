@@ -7,12 +7,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAiAnalysis, useAiCommand, useRetryCommand } from "@/lib/hooks/use-ai-actions";
 import type { AiCommand } from "@/lib/types";
-
-const RISK_STYLES: Record<string, string> = {
-  low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  medium: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  high: "bg-red-500/10 text-red-400 border-red-500/20",
-};
+import { RISK_STYLES } from "@/lib/constants";
 
 function MetricRow({ label, pre, post }: { label: string; pre?: number | null; post?: number | null }) {
   if (pre == null && post == null) return null;

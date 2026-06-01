@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { getFriendlyMessage } from "@/lib/errors";
 import { useScripts, useCreateScript, useDeleteScript, useToggleScript } from "@/lib/hooks/use-scripts";
 import { Terminal, Plus, Trash2, Code2, History, Eye, Search, Power, FlaskConical, Shield, RefreshCw } from "lucide-react";
 import Link from "next/link";
@@ -71,7 +72,7 @@ export default function AutomationPage() {
       toast.success("Playbook deleted");
       setDeleteTarget(null);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

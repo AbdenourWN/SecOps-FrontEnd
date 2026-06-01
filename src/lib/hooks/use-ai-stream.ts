@@ -69,6 +69,8 @@ export type AiStreamResult = {
    * Reset when a new analysis run kicks off (isRunning false→true).
    */
   streamCompleted: boolean;
+  /** Friendly error message carried on the analysis-complete event, else null. */
+  streamError: string | null;
 };
 
 export function useAiAnalysisStream(
@@ -93,6 +95,7 @@ export function useAiAnalysisStream(
 
   const [gapDetected, setGapDetected] = useState(false);
   const [streamCompleted, setStreamCompleted] = useState(false);
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   const isRunningRef = useRef(isRunning);
   useEffect(() => { isRunningRef.current = isRunning; }, [isRunning]);
@@ -132,6 +135,7 @@ export function useAiAnalysisStream(
     if (!prevRunningRef.current && isRunning) {
       setGapDetected(false);
       setStreamCompleted(false);
+      setStreamError(null);
     }
     prevRunningRef.current = isRunning;
   }, [isRunning]);
@@ -159,6 +163,7 @@ export function useAiAnalysisStream(
           setStreamedMarkdown("");
           setGapDetected(false);
           setStreamCompleted(false);
+          setStreamError(null);
           justResumedRef.current = false;
         }
         lastRunIdRef.current = incomingRun;
@@ -211,6 +216,7 @@ export function useAiAnalysisStream(
         justResumedRef.current = false;
         setGapDetected(false);
         setStreamCompleted(true);
+        setStreamError(typeof p.error === "string" && p.error.trim() ? p.error : null);
       }
     };
 
@@ -218,5 +224,5 @@ export function useAiAnalysisStream(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverId, sourceId, sourceType, key, topicOverride]);
 
-  return { streamedMarkdown, gapDetected, streamCompleted };
+  return { streamedMarkdown, gapDetected, streamCompleted, streamError };
 }

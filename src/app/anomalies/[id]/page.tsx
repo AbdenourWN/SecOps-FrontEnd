@@ -4,8 +4,11 @@ import { use, useState } from "react";
 import { useAiAnalysisStream } from "@/lib/hooks/use-ai-stream";
 import { useStickToBottom } from "@/lib/hooks/use-stick-to-bottom";
 import { TypingCursor } from "@/components/shared/typing-cursor";
+import { RISK_STYLES } from "@/lib/constants";
+import { STATUS_ICON } from "@/components/shared/command-status-icon";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -13,7 +16,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Brain,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardCopy,
@@ -24,12 +26,10 @@ import {
   Loader2,
   RefreshCw,
   Server,
-  ShieldAlert,
   Telescope,
   Terminal,
   TrendingUp,
   X,
-  XCircle,
   WifiOff,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
@@ -58,21 +58,6 @@ import type {
 // ── Shared sub-components ─────────────────────────────────────────────────────
 // ManualCommandCard now lives in @/components/shared/manual-command-card.
 
-const RISK_STYLES: Record<string, string> = {
-  low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  medium: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  high: "bg-red-500/10 text-red-400 border-red-500/20",
-};
-
-const STATUS_ICON = {
-  pending: null,
-  approved: <Loader2 className="h-3 w-3 animate-spin text-blue-400" />,
-  executing: <Loader2 className="h-3 w-3 animate-spin text-blue-400" />,
-  completed: <CheckCircle2 className="h-3 w-3 text-emerald-400" />,
-  failed: <XCircle className="h-3 w-3 text-red-400" />,
-  blocked: <ShieldAlert className="h-3 w-3 text-red-400" />,
-  rejected: <XCircle className="h-3 w-3 text-muted-foreground" />,
-};
 
 
 
@@ -248,7 +233,7 @@ export default function AnomalyDetailPage({
       setSelectedCommands(new Set());
       toast.success(`${ids.length} command(s) queued for execution`);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -258,7 +243,7 @@ export default function AnomalyDetailPage({
       setSelectedCommands(new Set());
       toast.success(`${ids.length} command(s) dismissed`);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -268,7 +253,7 @@ export default function AnomalyDetailPage({
       await dismissMutation.mutateAsync(anomaly._id);
       toast.success("Anomaly dismissed");
     } catch (err) {
-      toast.error((err as Error).message ?? "Failed to dismiss");
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -284,7 +269,7 @@ export default function AnomalyDetailPage({
         },
       });
     } catch (err) {
-      toast.error((err as Error).message ?? "Failed to promote");
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -294,7 +279,7 @@ export default function AnomalyDetailPage({
       await aiAnalysis.mutateAsync(anomaly._id);
       toast.success("AI analysis complete — see Suggested Commands below");
     } catch (err) {
-      toast.error((err as Error).message ?? "AI analysis failed");
+      toast.error(getFriendlyMessage(err));
     }
   };
 

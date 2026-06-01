@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/errors";
 import { Bot, Check, Eye, X, Clock, CheckCircle2, Terminal, XCircle, Loader2, ShieldAlert, ChevronLeft, ChevronRight, AlertTriangle, ExternalLink, Server } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CommandDetailModal } from "@/components/shared/command-detail-modal";
+import { RISK_STYLES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -179,7 +181,7 @@ function ActionCard({ action }: { action: AiPendingAction }) {
       await approve.mutateAsync(action._id);
       toast.success("Action approved and executed");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -188,7 +190,7 @@ function ActionCard({ action }: { action: AiPendingAction }) {
       await reject.mutateAsync(action._id);
       toast.success("Action rejected");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -344,11 +346,6 @@ function ActionCard({ action }: { action: AiPendingAction }) {
   );
 }
 
-const RISK_STYLES: Record<string, string> = {
-  low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  medium: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  high: "bg-red-500/10 text-red-400 border-red-500/20",
-};
 
 
 // ── Command row (list item) ────────────────────────────────────────────────────
@@ -363,7 +360,7 @@ function CommandRow({ cmd, onView }: { cmd: AiCommand; onView: () => void }) {
       await approve.mutateAsync({ command_ids: [cmd._id] });
       toast.success("Command queued for execution");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 
@@ -372,7 +369,7 @@ function CommandRow({ cmd, onView }: { cmd: AiCommand; onView: () => void }) {
       await reject.mutateAsync({ command_ids: [cmd._id] });
       toast.success("Command dismissed");
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error(getFriendlyMessage(err));
     }
   };
 

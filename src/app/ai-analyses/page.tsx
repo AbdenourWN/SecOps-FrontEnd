@@ -4,12 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   BrainCircuit,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   Server,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { NumberedPagination } from "@/components/shared/numbered-pagination";
 import {
   Select,
   SelectContent,
@@ -21,24 +20,7 @@ import { cn } from "@/lib/utils";
 import { useAiAnalysesList } from "@/lib/hooks/use-ai-actions";
 import { useServers } from "@/lib/hooks/use-servers";
 import type { AiAnalysis, AiAnalysisType } from "@/lib/types";
-
-const ANALYSIS_TYPE_LABEL: Record<AiAnalysisType, string> = {
-  incident_triage: "Incident Triage",
-  anomaly_triage: "Anomaly Triage",
-  server_overview: "Server Overview",
-  script_execution_review: "Script Review",
-  command_impact: "Command Impact",
-  app_overview: "Platform Overview",
-};
-
-const ANALYSIS_TYPE_COLOR: Record<AiAnalysisType, string> = {
-  incident_triage: "bg-red-500/10 text-red-400 border-red-500/20",
-  anomaly_triage: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-  server_overview: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-  script_execution_review: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  command_impact: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  app_overview: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-};
+import { ANALYSIS_TYPE_LABEL, ANALYSIS_TYPE_COLOR } from "@/lib/constants";
 
 const ANALYSIS_TYPES: (AiAnalysisType | "all")[] = [
   "all",
@@ -119,90 +101,6 @@ function AnalysisRow({ a }: { a: AiAnalysis }) {
         </span>
       </div>
     </Link>
-  );
-}
-
-// Numbered pagination — shows up to 7 page tokens at a time with ellipsis collapsing.
-function NumberedPagination({
-  page,
-  total,
-  pageSize,
-  onPage,
-}: {
-  page: number;
-  total: number;
-  pageSize: number;
-  onPage: (p: number) => void;
-}) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  if (totalPages <= 1) return null;
-  const from = (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, total);
-
-  // Build the visible page-token list — keeps width predictable on big result sets
-  const tokens: (number | "…")[] = [];
-  const pushRange = (a: number, b: number) => {
-    for (let i = a; i <= b; i++) tokens.push(i);
-  };
-  if (totalPages <= 7) {
-    pushRange(1, totalPages);
-  } else if (page <= 4) {
-    pushRange(1, 5);
-    tokens.push("…", totalPages);
-  } else if (page >= totalPages - 3) {
-    tokens.push(1, "…");
-    pushRange(totalPages - 4, totalPages);
-  } else {
-    tokens.push(1, "…");
-    pushRange(page - 1, page + 1);
-    tokens.push("…", totalPages);
-  }
-
-  return (
-    <div className="flex items-center justify-between pt-2">
-      <p className="text-xs text-muted-foreground tabular-nums">
-        {from}–{to} of {total}
-      </p>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onPage(page - 1)}
-          disabled={page <= 1}
-          aria-label="Previous page"
-          className="flex items-center justify-center h-7 w-7 rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-        </button>
-        {tokens.map((t, i) =>
-          t === "…" ? (
-            <span key={`e${i}`} className="text-xs text-muted-foreground px-1.5 select-none">
-              …
-            </span>
-          ) : (
-            <button
-              key={t}
-              onClick={() => onPage(t)}
-              aria-current={t === page ? "page" : undefined}
-              className={cn(
-                "h-7 min-w-7 px-2 text-xs font-semibold rounded-lg border transition-colors tabular-nums",
-                t === page
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              {t}
-            </button>
-          ),
-        )}
-        <button
-          onClick={() => onPage(page + 1)}
-          disabled={page >= totalPages}
-          aria-label="Next page"
-          className="flex items-center justify-center h-7 w-7 rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </div>
   );
 }
 
