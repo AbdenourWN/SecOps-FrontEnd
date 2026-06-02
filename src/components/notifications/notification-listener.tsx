@@ -24,9 +24,6 @@ export function NotificationListener() {
       if (event !== "notification.created") return;
       const n = payload as AppNotification;
       if (!n || !n.title) return;
-      // A coalesced dedup bump re-emits with count>1 — the bell still updates,
-      // but we don't pop a duplicate card for the same logical notification.
-      if (typeof n.count === "number" && n.count > 1) return;
 
       const link = n.link ?? null;
       toast.custom(
@@ -43,6 +40,11 @@ export function NotificationListener() {
           // Route to the dedicated top-right toaster (see app/layout.tsx).
           toasterId: "notifications",
           duration: n.severity === "error" ? 8000 : 5000,
+          // Stable per-notification id: a coalesced dedup bump (count>1) re-emits
+          // with the same notification id, so sonner updates the card in place
+          // (and resets its timer) instead of stacking duplicates — and re-pops
+          // it if the previous card was already dismissed/expired.
+          id: `notif-${n.id}`,
         },
       );
     });
