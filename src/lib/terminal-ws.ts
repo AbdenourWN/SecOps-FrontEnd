@@ -38,6 +38,8 @@ export interface DoneEvent {
   exit_code: number;
   duration_ms: number;
   status: "success" | "failed" | "timeout" | "aborted";
+  // Phase 20.6 — set when the output looks like a privilege/permission failure.
+  permission_error?: boolean;
 }
 
 export interface ErrorEvent {

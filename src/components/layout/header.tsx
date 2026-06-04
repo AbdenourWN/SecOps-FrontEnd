@@ -35,7 +35,7 @@ function UtcClock() {
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
 
   return (
@@ -83,18 +83,23 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* Notification bell */}
         <NotificationBell />
 
-        {/* Settings */}
-        <Link
-          href="/settings"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          aria-label="Settings"
-        >
-          <Settings className="h-4 w-4" />
-        </Link>
+        {/* Settings — admin only */}
+        {isAdmin && (
+          <Link
+            href="/settings"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            aria-label="Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </Link>
+        )}
 
         {/* User avatar */}
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all ml-1">
-          {user.username.charAt(0).toUpperCase()}
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold uppercase cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all ml-1"
+          title={user ? `${user.username} · ${user.role}` : undefined}
+        >
+          {user?.username?.charAt(0).toUpperCase() ?? "?"}
         </div>
       </div>
     </header>

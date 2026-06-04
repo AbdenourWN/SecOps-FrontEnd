@@ -37,6 +37,7 @@ import {
   FileText,
   ExternalLink,
   AlertTriangle,
+  ShieldAlert,
   WifiOff,
 } from "lucide-react";
 import type { AiCommand } from "@/lib/types";
@@ -335,6 +336,21 @@ export default function IncidentDetailPage({
               </span>
               <span className="ml-1 text-muted-foreground">
                 The system has stopped retrying for this server + rule. Investigate manually, then resolve this incident to re-arm auto-remediation. If the linked script is the wrong fix for this server, disable it in the Automation page.
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Permission-denied banner (Phase 20.6) */}
+        {incident.automation_failure_reason === "permission_denied" && (
+          <div className="flex items-start gap-3 rounded-xl border px-4 py-3 text-sm bg-red-500/10 border-red-500/30 text-red-400">
+            <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <span className="font-semibold">
+                Auto-remediation blocked — privileged access required.
+              </span>
+              <span className="ml-1 text-muted-foreground">
+                The remediation script could not run on this server because the stored credential lacks permission (it likely needs root/sudo or an elevated account). Retrying will not help, so automation has stopped for this server + rule. Re-credential this server with privileged access, or disable this script for this server in the Automation page, then resolve this incident to re-arm auto-remediation.
               </span>
             </div>
           </div>

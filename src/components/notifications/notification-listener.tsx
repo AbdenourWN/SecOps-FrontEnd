@@ -4,7 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { wsClient } from "@/lib/ws";
-import { WS_NOTIFICATIONS_TOPIC } from "@/lib/constants";
+import { userNotificationsTopic } from "@/lib/constants";
+import { useAuth } from "@/providers/auth-provider";
 import { NotificationToastCard } from "@/components/notifications/notification-toast-card";
 import type { AppNotification } from "@/lib/types";
 
@@ -18,9 +19,12 @@ import type { AppNotification } from "@/lib/types";
  */
 export function NotificationListener() {
   const router = useRouter();
+  const { user } = useAuth();
+  const userId = user?.id;
 
   useEffect(() => {
-    const unsub = wsClient.subscribe(WS_NOTIFICATIONS_TOPIC, (payload, event) => {
+    if (!userId) return; // no live pop-ups until the current user is known
+    const unsub = wsClient.subscribe(userNotificationsTopic(userId), (payload, event) => {
       if (event !== "notification.created") return;
       const n = payload as AppNotification;
       if (!n || !n.title) return;
@@ -49,7 +53,7 @@ export function NotificationListener() {
       );
     });
     return unsub;
-  }, [router]);
+  }, [router, userId]);
 
   return null;
 }

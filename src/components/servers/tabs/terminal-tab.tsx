@@ -20,6 +20,8 @@ import {
   type ErrorEvent,
 } from "@/lib/terminal-ws";
 import { cn } from "@/lib/utils";
+import { apiClient, ApiError } from "@/lib/api";
+import { useAuth } from "@/providers/auth-provider";
 import { diagnoseAuthFailure } from "@/lib/server-auth-diagnostics";
 import type { ServerResponse } from "@/lib/types";
 
@@ -43,7 +45,11 @@ interface TerminalTabProps {
 }
 
 export function TerminalTab({ server }: TerminalTabProps) {
-  // --- Auth gate (unchanged mock; will be replaced in P4.5) ---
+  // Role gate: command execution is operator/admin only. Viewers are read-only;
+  // the backend WS also rejects them (close 4403), this is the matching UI guard.
+  const { isOperator } = useAuth();
+
+  // --- Auth gate: step-up re-auth against the signed-in account's password ---
   const [authed, setAuthed] = useState(false);
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -158,11 +164,20 @@ export function TerminalTab({ server }: TerminalTabProps) {
 
         const fullOutput = streamingOutputRef.current + finalOutput;
 
+        // Phase 20.6 — surface a privilege hint when the failure looks like a
+        // permission problem, so the operator re-credentials/elevates instead of
+        // treating it as a generic error.
+        const permHint = e.permission_error
+          ? "\n\n⚠ Privilege error — the stored credential lacks permission for this command. Re-credential this server with privileged access, or run via an elevated account."
+          : "";
+
         setHistory((h) => [
           ...h,
           {
             command: streamingCommandRef.current ?? "",
-            output: fullOutput || (e.status === "success" ? "(no output)" : `[${e.status}]`),
+            output:
+              (fullOutput || (e.status === "success" ? "(no output)" : `[${e.status}]`)) +
+              permHint,
             kind:
               e.status === "success"
                 ? "ok"
@@ -261,19 +276,20 @@ export function TerminalTab({ server }: TerminalTabProps) {
     pendingConfirmRef.current = pendingConfirm;
   }, [pendingConfirm]);
 
-  // --- Auth gate ---
+  // --- Auth gate: step-up re-auth against the current user's password ---
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authPassword) return;
     setAuthLoading(true);
     setAuthError(null);
     try {
-      // Mocked gate — replaced with real POST /auth/verify-password in P4.5
-      await new Promise((r) => setTimeout(r, 350));
+      await apiClient.post("/api/auth/verify-password", { password: authPassword });
       setAuthed(true);
       setAuthPassword("");
     } catch (err) {
-      setAuthError((err as Error).message || "Authentication failed");
+      const msg =
+        err instanceof ApiError ? err.detail : (err as Error).message;
+      setAuthError(msg || "Authentication failed");
     } finally {
       setAuthLoading(false);
     }
@@ -393,6 +409,30 @@ export function TerminalTab({ server }: TerminalTabProps) {
     error: "error",
   }[connStatus];
 
+  // --- Role gate (viewers cannot run commands) ---
+  if (!isOperator) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-8 max-w-lg mx-auto shadow-xl">
+        <div className="flex flex-col items-center text-center">
+          <div className="h-14 w-14 rounded-full flex items-center justify-center mb-4 ring-1 bg-red-500/10 ring-red-500/20">
+            <ShieldAlert className="h-6 w-6 text-red-400" />
+          </div>
+          <h3 className="text-lg font-bold">Terminal access restricted</h3>
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+            Running commands requires an{" "}
+            <span className="font-semibold text-foreground">operator</span> or{" "}
+            <span className="font-semibold text-foreground">admin</span> role.
+            Your account has read-only access to{" "}
+            <span className="font-mono font-semibold text-foreground">
+              {server.hostname}
+            </span>
+            . Contact an administrator if you need shell access.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // --- Offline / auth-broken gate ---
   if (server.status !== "online") {
     const isReachable = server.status === "reachable";
@@ -452,7 +492,7 @@ export function TerminalTab({ server }: TerminalTabProps) {
           </div>
           <h3 className="text-lg font-bold">Privileged Shell Access</h3>
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-            Re-authenticate with your admin password to open an interactive{" "}
+            Re-authenticate with your account password to open an interactive{" "}
             <span className="font-mono font-semibold text-foreground">
               {shellLabel}
             </span>{" "}
@@ -466,7 +506,7 @@ export function TerminalTab({ server }: TerminalTabProps) {
         <form onSubmit={handleAuth} className="space-y-3">
           <div>
             <label className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-2 block">
-              Admin Password
+              Account Password
             </label>
             <input
               type="password"

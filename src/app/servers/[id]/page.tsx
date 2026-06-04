@@ -2,6 +2,7 @@
 
 import { AppShell } from "@/components/layout/app-shell";
 import { getFriendlyMessage } from "@/lib/errors";
+import { useAuth } from "@/providers/auth-provider";
 import { useServer, useDeleteServer, useRecalculateStats } from "@/lib/hooks/use-servers";
 import { useIncidents } from "@/lib/hooks/use-incidents";
 import { useServerAnomaliesFiltered } from "@/lib/hooks/use-anomalies";
@@ -44,6 +45,7 @@ export default function ServerDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { isOperator } = useAuth(); // operator/admin → may open the terminal
   const { data: server, isLoading: loadingServer } = useServer(id);
   const { data: incidentsData } = useIncidents({
     server_id: id,
@@ -119,7 +121,8 @@ export default function ServerDetailPage({
     { key: "rules",       label: "Rules" },
     { key: "scripts",     label: "Scripts" },
     { key: "ai-overview", label: "AI Overview" },
-    { key: "actions",     label: "Actions" },
+    // Terminal/command execution — operator+ only; viewers never see this tab.
+    ...(isOperator ? [{ key: "actions" as const, label: "Actions" }] : []),
   ];
 
   return (
@@ -245,7 +248,7 @@ export default function ServerDetailPage({
         {activeTab === "rules" && <ServerRulesTab serverId={id} />}
         {activeTab === "scripts" && <ServerScriptsTab serverId={id} />}
         {activeTab === "ai-overview" && <AiOverviewTab server={server} />}
-        {activeTab === "actions" && <TerminalTab server={server} />}
+        {activeTab === "actions" && isOperator && <TerminalTab server={server} />}
 
         {/* Delete Confirm Modal */}
         {/* {showDeleteConfirm && (

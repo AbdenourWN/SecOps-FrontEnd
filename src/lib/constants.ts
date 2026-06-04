@@ -41,9 +41,12 @@ export const ANALYSIS_TYPE_COLOR: Record<AiAnalysisType, string> = {
   app_overview: "bg-blue-500/10 text-blue-400 border-blue-500/20",
 };
 
-// ── In-app notifications (Phase 29) ──
-// Single global WS topic for v1 (per-recipient split lands with auth).
-export const WS_NOTIFICATIONS_TOPIC = "notifications";
+// ── In-app notifications (Phase 29; per-recipient in Phase 20.1) ──
+// Each client subscribes to its own per-user topic so it only receives the
+// notifications scoped to it (the backend resolves recipients in `notify()`).
+export function userNotificationsTopic(userId: string): string {
+  return `notifications.user.${userId}`;
+}
 
 // Category → human label (used by the /notifications page filter).
 export const NOTIFICATION_CATEGORY_LABEL: Record<NotificationCategory, string> = {

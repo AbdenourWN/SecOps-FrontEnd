@@ -15,6 +15,7 @@ export function useWsInvalidator(
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (!topic) return; // e.g. per-user topic before the current user is known
     const unsubscribe = wsClient.subscribe(topic, () => {
       for (const key of queryKeys) {
         queryClient.invalidateQueries({ queryKey: key });

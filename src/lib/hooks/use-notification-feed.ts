@@ -3,15 +3,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { notificationFeedApi } from "@/lib/api/notification-feed";
 import { useWsInvalidator } from "@/lib/hooks/use-ws-invalidator";
-import { WS_NOTIFICATIONS_TOPIC } from "@/lib/constants";
+import { userNotificationsTopic } from "@/lib/constants";
+import { useAuth } from "@/providers/auth-provider";
 
 const FEED_KEY = ["notification-feed"];
 const COUNT_KEY = ["notification-feed", "unread-count"];
 
 /**
  * Notification list for the bell dropdown + the /notifications page.
- * Live-refreshed off the global `notifications` WS topic; HTTP refetch is a
- * 5-min safety net (the WS push is the primary signal).
+ * Live-refreshed off the principal's per-user `notifications.user.<id>` WS topic;
+ * HTTP refetch is a 5-min safety net (the WS push is the primary signal).
  */
 export function useNotificationFeed(filters?: {
   page?: number;
@@ -21,7 +22,8 @@ export function useNotificationFeed(filters?: {
   from_date?: string;
   to_date?: string;
 }) {
-  useWsInvalidator(WS_NOTIFICATIONS_TOPIC, [FEED_KEY, COUNT_KEY]);
+  const { user } = useAuth();
+  useWsInvalidator(user ? userNotificationsTopic(user.id) : "", [FEED_KEY, COUNT_KEY]);
   return useQuery({
     queryKey: [...FEED_KEY, filters ?? {}],
     queryFn: () => notificationFeedApi.list(filters),
@@ -31,7 +33,8 @@ export function useNotificationFeed(filters?: {
 }
 
 export function useUnreadCount() {
-  useWsInvalidator(WS_NOTIFICATIONS_TOPIC, [COUNT_KEY]);
+  const { user } = useAuth();
+  useWsInvalidator(user ? userNotificationsTopic(user.id) : "", [COUNT_KEY]);
   return useQuery({
     queryKey: COUNT_KEY,
     queryFn: () => notificationFeedApi.unreadCount(),

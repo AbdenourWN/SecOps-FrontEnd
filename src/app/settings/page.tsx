@@ -124,27 +124,27 @@ function ProfileSection() {
     <div className="space-y-6">
       <SectionCard title="Account" description="Your identity on the platform.">
         <div className="flex items-center gap-5 mb-6">
-          <div className="h-16 w-16 rounded-2xl bg-primary/20 text-primary flex items-center justify-center text-2xl font-black">
-            {user.username.charAt(0).toUpperCase()}
+          <div className="h-16 w-16 rounded-2xl bg-primary/20 text-primary flex items-center justify-center text-2xl font-black uppercase">
+            {user?.username?.charAt(0) ?? "?"}
           </div>
           <div>
-            <h3 className="text-lg font-bold">{user.username}</h3>
+            <h3 className="text-lg font-bold">{user?.username ?? "—"}</h3>
             <span className="text-sm text-muted-foreground capitalize">
-              {user.role}
+              {user?.role ?? ""}
             </span>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FieldGroup label="Username">
             <input
-              defaultValue={user.username}
+              defaultValue={user?.username ?? ""}
               disabled
               className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground cursor-not-allowed"
             />
           </FieldGroup>
           <FieldGroup label="Role">
             <input
-              defaultValue={user.role}
+              defaultValue={user?.role ?? ""}
               disabled
               className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-muted-foreground cursor-not-allowed"
             />

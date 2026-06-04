@@ -15,12 +15,15 @@ import {
   Settings,
   Telescope,
   Bell,
+  Users,
+  LogOut,
   X,
 } from "lucide-react";
 import Image from "next/image";
 import { useAnomalyStats } from "@/lib/hooks/use-anomalies";
 import { useAiPendingCount, useAiCommandPendingCount } from "@/lib/hooks/use-ai-actions";
 import { useUnreadCount } from "@/lib/hooks/use-notification-feed";
+import { useAuth } from "@/providers/auth-provider";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -48,6 +51,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const pendingAiActions = (mutationCount?.pending ?? 0) + (commandCount?.pending ?? 0);
   const { data: unreadData } = useUnreadCount();
   const unreadNotifications = unreadData?.count ?? 0;
+  const { user, isAdmin, logout } = useAuth();
 
   const navLink = (href: string, label: string, Icon: React.ElementType) => {
     const active =
@@ -170,22 +174,30 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               System
             </p>
             {navLink("/notifications", "Notifications", Bell)}
-            {navLink("/settings", "Settings", Settings)}
+            {isAdmin && navLink("/users", "Users", Users)}
+            {isAdmin && navLink("/settings", "Settings", Settings)}
           </div>
         </nav>
 
-        {/* Bottom: User info */}
+        {/* Bottom: User info + sign out */}
         <div className="shrink-0 border-t border-border p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold">
-              A
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary text-xs font-bold uppercase">
+              {user?.username?.charAt(0) ?? "?"}
             </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold truncate">Admin</p>
-              <p className="text-[10px] text-muted-foreground truncate">
-                SecOps Administrator
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold truncate">{user?.username ?? "—"}</p>
+              <p className="text-[10px] text-muted-foreground truncate capitalize">
+                {user?.role ?? ""}
               </p>
             </div>
+            <button
+              onClick={() => logout()}
+              title="Sign out"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </aside>
