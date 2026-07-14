@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import Link from "next/link";
 
 type Tab = "profile" | "appearance" | "settings" | "system" | "api";
 
@@ -87,7 +88,7 @@ export default function SettingsPage() {
                   "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all whitespace-nowrap",
                   activeTab === id
                     ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
@@ -185,26 +186,24 @@ function AppearanceSection() {
                 "flex flex-col items-center gap-3 rounded-2xl border-2 p-6 transition-all",
                 theme === id
                   ? "border-primary bg-primary/5 shadow-sm shadow-primary/10"
-                  : "border-border hover:border-primary/40 hover:bg-muted/50"
+                  : "border-border hover:border-primary/40 hover:bg-muted/50",
               )}
             >
               <Icon
                 className={cn(
                   "h-6 w-6",
-                  theme === id ? "text-primary" : "text-muted-foreground"
+                  theme === id ? "text-primary" : "text-muted-foreground",
                 )}
               />
               <span
                 className={cn(
                   "text-sm font-semibold",
-                  theme === id ? "text-primary" : "text-muted-foreground"
+                  theme === id ? "text-primary" : "text-muted-foreground",
                 )}
               >
                 {label}
               </span>
-              {theme === id && (
-                <Check className="h-4 w-4 text-primary" />
-              )}
+              {theme === id && <Check className="h-4 w-4 text-primary" />}
             </button>
           ))}
         </div>
@@ -216,8 +215,16 @@ function AppearanceSection() {
 /* ─── AI Model (LLM provider/model override) ───────────────── */
 
 const LLM_PROVIDERS: { value: LlmProvider; label: string; hint: string }[] = [
-  { value: "openrouter", label: "OpenRouter", hint: "One key → ~300 models (e.g. google/gemini-3-flash-preview)" },
-  { value: "anthropic", label: "Anthropic", hint: "Direct Claude API (e.g. claude-sonnet-4-6)" },
+  {
+    value: "openrouter",
+    label: "OpenRouter",
+    hint: "One key → ~300 models (e.g. google/gemini-3-flash-preview)",
+  },
+  {
+    value: "anthropic",
+    label: "Anthropic",
+    hint: "Direct Claude API (e.g. claude-sonnet-4-6)",
+  },
   { value: "openai", label: "OpenAI", hint: "Direct OpenAI API (e.g. gpt-5)" },
 ];
 
@@ -258,7 +265,9 @@ function LlmSection() {
     }
   };
 
-  const selectedHint = LLM_PROVIDERS.find((p) => p.value === activeProvider)?.hint;
+  const selectedHint = LLM_PROVIDERS.find(
+    (p) => p.value === activeProvider,
+  )?.hint;
 
   return (
     <SectionCard
@@ -268,7 +277,10 @@ function LlmSection() {
       {isLoading ? (
         <div className="space-y-4">
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="h-12 rounded-xl bg-muted/60 animate-pulse" />
+            <div
+              key={i}
+              className="h-12 rounded-xl bg-muted/60 animate-pulse"
+            />
           ))}
         </div>
       ) : (
@@ -278,8 +290,12 @@ function LlmSection() {
               <Bot className="h-4 w-4" />
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Provider API keys stay in the server&apos;s <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">.env</code> file.
-              This only switches which provider/model the agents call — the matching key must already be configured.
+              Provider API keys stay in the server&apos;s{" "}
+              <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">
+                .env
+              </code>{" "}
+              file. This only switches which provider/model the agents call —
+              the matching key must already be configured.
             </p>
           </div>
 
@@ -300,11 +316,23 @@ function LlmSection() {
               </SelectContent>
             </Select>
             {selectedHint && (
-              <p className="text-[11px] text-muted-foreground mt-1">{selectedHint}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {selectedHint}
+              </p>
             )}
           </FieldGroup>
 
           <FieldGroup label="Model">
+            <div className="text-[14px] text-muted-foreground">
+              To change the model, choose a new name from the openrouter website{" "}
+              <Link
+                href={"https://openrouter.ai/models"}
+                target="_blank"
+                className="px-1 py-0.5 rounded bg-muted font-mono text-[12px] text-blue-500 underline"
+              >
+                https://openrouter.ai/models
+              </Link>
+            </div>
             <input
               value={activeModel}
               onChange={(e) => setModel(e.target.value)}
@@ -335,7 +363,9 @@ function LlmSection() {
               {saveLlm.isPending ? "Saving..." : "Save AI Model"}
             </button>
             {isDirty && (
-              <span className="text-xs text-muted-foreground">Unsaved changes</span>
+              <span className="text-xs text-muted-foreground">
+                Unsaved changes
+              </span>
             )}
           </div>
         </div>
@@ -445,13 +475,13 @@ function NotificationsSection() {
                 onClick={() => setEnabled(!enabled)}
                 className={cn(
                   "relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors",
-                  enabled ? "bg-primary" : "bg-muted-foreground/30"
+                  enabled ? "bg-primary" : "bg-muted-foreground/30",
                 )}
               >
                 <span
                   className={cn(
                     "inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform mt-0.5",
-                    enabled ? "translate-x-[22px]" : "translate-x-0.5"
+                    enabled ? "translate-x-[22px]" : "translate-x-0.5",
                   )}
                 />
               </button>
@@ -498,10 +528,17 @@ function NotificationsSection() {
                   <Mail className="h-4 w-4" />
                 </div>
                 <div>
-                  <span className="text-xs font-bold block">SMTP Override (optional)</span>
+                  <span className="text-xs font-bold block">
+                    SMTP Override (optional)
+                  </span>
                   <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                    SMTP credentials are configured securely in the server&apos;s <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">.env</code> file.
-                    Only fill these fields if you need to override the defaults for this notification channel.
+                    SMTP credentials are configured securely in the
+                    server&apos;s{" "}
+                    <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">
+                      .env
+                    </code>{" "}
+                    file. Only fill these fields if you need to override the
+                    defaults for this notification channel.
                   </p>
                 </div>
               </div>
@@ -535,17 +572,23 @@ function NotificationsSection() {
                     type="password"
                     value={smtpPassword}
                     onChange={(e) => setSmtpPassword(e.target.value)}
-                    placeholder={smtpPasswordStored ? "Leave blank to keep current password" : "Enter SMTP password"}
+                    placeholder={
+                      smtpPasswordStored
+                        ? "Leave blank to keep current password"
+                        : "Enter SMTP password"
+                    }
                     className="w-full px-4 py-2.5 rounded-xl bg-muted/50 border border-border focus:border-primary/50 outline-none text-sm"
                   />
                   {smtpPasswordStored && smtpPassword === "" && (
-                    <p className="text-[11px] text-emerald-500 mt-1">A password is currently stored</p>
+                    <p className="text-[11px] text-emerald-500 mt-1">
+                      A password is currently stored
+                    </p>
                   )}
                 </FieldGroup>
               </div>
               <p className="text-[11px] text-muted-foreground mt-3">
-                Leave blank to use the server&apos;s default SMTP settings from the
-                environment.
+                Leave blank to use the server&apos;s default SMTP settings from
+                the environment.
               </p>
             </div>
 
@@ -618,7 +661,10 @@ function SystemSection() {
         {isLoading ? (
           <div className="space-y-4">
             {[...Array(2)].map((_, i) => (
-              <div key={i} className="h-12 rounded-xl bg-muted/60 animate-pulse" />
+              <div
+                key={i}
+                className="h-12 rounded-xl bg-muted/60 animate-pulse"
+              />
             ))}
           </div>
         ) : (
@@ -644,15 +690,16 @@ function SystemSection() {
                   step={1}
                 />
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Caps how many server collection tasks (telemetry + file watcher)
-                  run simultaneously in one scheduler tick. Higher values reduce
-                  collection latency on large fleets but increase CPU and SSH/WinRM
-                  connection pressure. Set to <strong>1</strong> for strictly
-                  sequential collection.
+                  Caps how many server collection tasks (telemetry + file
+                  watcher) run simultaneously in one scheduler tick. Higher
+                  values reduce collection latency on large fleets but increase
+                  CPU and SSH/WinRM connection pressure. Set to{" "}
+                  <strong>1</strong> for strictly sequential collection.
                 </p>
                 {current !== envDefault && (
                   <p className="text-[11px] text-amber-500">
-                    Active override: <strong>{current}</strong>. Environment default: {envDefault}.{" "}
+                    Active override: <strong>{current}</strong>. Environment
+                    default: {envDefault}.{" "}
                     <button
                       onClick={handleReset}
                       className="underline hover:text-amber-400 transition-colors"
@@ -663,7 +710,8 @@ function SystemSection() {
                 )}
                 {current === envDefault && (
                   <p className="text-[11px] text-muted-foreground">
-                    Using environment default ({envDefault}). No DB override active.
+                    Using environment default ({envDefault}). No DB override
+                    active.
                   </p>
                 )}
               </div>
@@ -694,8 +742,7 @@ function SystemSection() {
 /* ─── API & Integrations ───────────────────────────────────── */
 
 function ApiSection() {
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8500";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8500";
 
   return (
     <div className="space-y-6">
@@ -717,7 +764,11 @@ function ApiSection() {
               </span>
             </div>
             <p className="text-[11px] text-muted-foreground mt-1.5">
-              Configured via <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-[10px]">NEXT_PUBLIC_API_URL</code> environment variable.
+              Configured via{" "}
+              <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-[10px]">
+                NEXT_PUBLIC_API_URL
+              </code>{" "}
+              environment variable.
             </p>
           </FieldGroup>
 
@@ -733,7 +784,7 @@ function ApiSection() {
                 "Notifications",
                 "Dashboard",
                 "Analysis",
-                "Anomalies"
+                "Anomalies",
               ].map((ep) => (
                 <div
                   key={ep}
@@ -747,7 +798,6 @@ function ApiSection() {
           </FieldGroup>
         </div>
       </SectionCard>
-
     </div>
   );
 }

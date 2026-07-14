@@ -326,7 +326,7 @@ export default function AutomationHistoryPage() {
                             <VerdictPill verdict={run.ai_review_verdict} />
                           ) : (
                             <span className="text-[10px] text-muted-foreground/70 font-mono">
-                              â€”
+                              -
                             </span>
                           )}
                         </td>
