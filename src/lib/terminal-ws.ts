@@ -96,7 +96,7 @@ export interface TerminalCallbacks {
 // TerminalWsClient — per-tab, per-server, NOT a singleton, NO auto-reconnect
 // ---------------------------------------------------------------------------
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8500";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8900";
 
 function buildTerminalWsUrl(serverId: string): string {
   if (typeof window === "undefined") return "";

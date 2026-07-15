@@ -6,7 +6,7 @@ export type WsState = "connecting" | "open" | "closed" | "reconnecting";
 export type WsHandler = (payload: unknown, event: string) => void;
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8500";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8900";
 
 function deriveWsUrl(): string {
   if (typeof window === "undefined") return "";

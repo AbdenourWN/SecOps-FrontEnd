@@ -742,7 +742,7 @@ function SystemSection() {
 /* ─── API & Integrations ───────────────────────────────────── */
 
 function ApiSection() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8500";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8900";
 
   return (
     <div className="space-y-6">
