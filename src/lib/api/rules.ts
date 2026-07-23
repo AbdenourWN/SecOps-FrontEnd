@@ -1,5 +1,12 @@
 import { apiClient } from "@/lib/api";
-import type { DetectionRule, DetectionRuleCreate, RuleFilters, RuleListResponse } from "@/lib/types";
+import type {
+  DetectionRule,
+  DetectionRuleCreate,
+  RuleFilters,
+  RuleListResponse,
+  RuleBulkToggle,
+  RuleBulkToggleResult,
+} from "@/lib/types";
 
 export const rulesApi = {
   list: (filters?: RuleFilters) => {
@@ -29,6 +36,10 @@ export const rulesApi = {
       `/api/analysis/servers/${serverId}/rules`,
       data,
     ),
+
+  // Bulk enable/disable every rule matching the given scope filters
+  bulkToggle: (payload: RuleBulkToggle) =>
+    apiClient.post<RuleBulkToggleResult>("/api/analysis/rules/bulk-toggle", payload),
 
   update: (id: string, data: Partial<DetectionRuleCreate>) =>
     apiClient.put<{ status: string }>("/api/analysis/rules/" + id, data),

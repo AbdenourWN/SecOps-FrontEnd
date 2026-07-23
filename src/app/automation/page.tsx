@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { getFriendlyMessage } from "@/lib/errors";
-import { useScripts, useCreateScript, useDeleteScript, useToggleScript } from "@/lib/hooks/use-scripts";
-import { Terminal, Plus, Trash2, Code2, History, Eye, Search, Power, FlaskConical, Shield, RefreshCw } from "lucide-react";
+import { useScripts, useCreateScript, useDeleteScript, useToggleScript, useBulkToggleScripts } from "@/lib/hooks/use-scripts";
+import { Terminal, Plus, Trash2, Code2, History, Eye, Search, Power, PowerOff, FlaskConical, Shield, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { timeAgo, cn } from "@/lib/utils";
+import { useAuth } from "@/providers/auth-provider";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { OwnerBadge } from "@/components/shared/owner-badge";
 import type { ScriptLanguage, ScriptResponse } from "@/lib/types";
@@ -56,9 +57,42 @@ export default function AutomationPage() {
   const createScript = useCreateScript();
   const deleteScript = useDeleteScript();
   const toggleScript = useToggleScript();
+  const bulkToggle = useBulkToggleScripts();
+  const { isAdmin } = useAuth();
 
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ScriptResponse | null>(null);
+  // Bulk enable/disable — holds the target enabled state; null = dialog closed.
+  const [bulkTarget, setBulkTarget] = useState<boolean | null>(null);
+
+  const hasActiveFilters =
+    filterLanguage !== "all" || filterOS !== "all" || filterScope !== "all" || !!search;
+
+  const handleConfirmBulk = async () => {
+    if (bulkTarget === null) return;
+    try {
+      const res = await bulkToggle.mutateAsync({
+        enabled: bulkTarget,
+        language: filterLanguage === "all" ? undefined : filterLanguage,
+        target_os: filterOS === "all" ? undefined : filterOS,
+        owner_type: filterScope === "all" ? undefined : filterScope,
+        search: search || undefined,
+      });
+      const verb = bulkTarget ? "Enabled" : "Disabled";
+      if (res.matched === 0) {
+        toast.info("No scripts matched the current filters");
+      } else if (res.changed > 0) {
+        toast.success(`${verb} ${res.changed} script${res.changed === 1 ? "" : "s"}`);
+      } else {
+        toast.info(
+          `No change — all ${res.matched} matching script${res.matched === 1 ? "" : "s"} already ${bulkTarget ? "enabled" : "disabled"}`
+        );
+      }
+      setBulkTarget(null);
+    } catch (err) {
+      toast.error(getFriendlyMessage(err));
+    }
+  };
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [language, setLanguage] = useState<ScriptLanguage>("bash");
@@ -192,6 +226,28 @@ export default function AutomationPage() {
                 </button>
               ))}
             </div>
+
+            {/* Bulk enable/disable — operates on all scripts matching the active filters (admin only) */}
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 ml-auto">
+                <button
+                  onClick={() => setBulkTarget(true)}
+                  disabled={bulkToggle.isPending || (data?.total ?? 0) === 0}
+                  title="Enable every script matching the current filters"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-success/30 bg-success/10 text-success hover:bg-success/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <Power className="h-3.5 w-3.5" /> Enable All
+                </button>
+                <button
+                  onClick={() => setBulkTarget(false)}
+                  disabled={bulkToggle.isPending || (data?.total ?? 0) === 0}
+                  title="Disable every script matching the current filters"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <PowerOff className="h-3.5 w-3.5" /> Disable All
+                </button>
+              </div>
+            )}
           </div>
 
           {isLoading ? (
@@ -469,6 +525,28 @@ export default function AutomationPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={bulkTarget !== null}
+        variant={bulkTarget ? "warning" : "danger"}
+        title={bulkTarget ? "Enable Playbooks" : "Disable Playbooks"}
+        message={
+          bulkTarget === null
+            ? ""
+            : `${bulkTarget ? "Enable" : "Disable"} ${data?.total ?? 0} script${(data?.total ?? 0) === 1 ? "" : "s"} ${
+                hasActiveFilters ? "matching the current filters" : "in the entire library"
+              }? ${
+                bulkTarget
+                  ? "Rules linked to these playbooks can auto-remediate again."
+                  : "Rules linked to these playbooks will degrade to alert-only (no auto-fix)."
+              }`
+        }
+        confirmLabel={bulkTarget ? "Enable All" : "Disable All"}
+        pendingLabel="Applying..."
+        isPending={bulkToggle.isPending}
+        onConfirm={handleConfirmBulk}
+        onCancel={() => setBulkTarget(null)}
+      />
 
       <ConfirmDialog
         open={!!deleteTarget}

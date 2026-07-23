@@ -251,7 +251,7 @@ export default function ServerDetailPage({
         {activeTab === "actions" && isOperator && <TerminalTab server={server} />}
 
         {/* Delete Confirm Modal */}
-        {/* {showDeleteConfirm && (
+        {showDeleteConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
             <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl">
               <h2 className="text-lg font-bold mb-2">Delete Server</h2>
@@ -290,7 +290,7 @@ export default function ServerDetailPage({
               </div>
             </div>
           </div>
-        )} */}
+        )}
       </div>
     </AppShell>
   );

@@ -572,6 +572,25 @@ export interface RuleListResponse {
   results: DetectionRule[];
 }
 
+// Bulk enable/disable — scope filters mirror RuleFilters so the action hits
+// exactly the currently-filtered set; `enabled` is the target state to apply.
+export interface RuleBulkToggle {
+  enabled: boolean;
+  severity?: SeverityLevel;
+  os_type?: RuleOSType;
+  owner_type?: "global" | "server";
+  owner_id?: string;
+  search?: string;
+  filter_enabled?: boolean;
+}
+
+export interface RuleBulkToggleResult {
+  status: string;
+  enabled: boolean;
+  matched: number; // total rules in scope
+  changed: number; // rules that actually flipped state
+}
+
 export interface DetectionRule {
   _id: string;
   name: string;
@@ -651,6 +670,24 @@ export interface ScriptListResponse {
   page: number;
   page_size: number;
   results: ScriptResponse[];
+}
+
+// Bulk enable/disable — scope filters mirror ScriptFilters so the action hits
+// exactly the currently-filtered set; `enabled` is the target state to apply.
+export interface ScriptBulkToggle {
+  enabled: boolean;
+  language?: ScriptLanguage;
+  target_os?: string;
+  owner_type?: "global" | "server";
+  owner_id?: string;
+  search?: string;
+}
+
+export interface ScriptBulkToggleResult {
+  status: string;
+  enabled: boolean;
+  matched: number; // total scripts in scope
+  changed: number; // scripts that actually flipped state
 }
 
 // ── Automation / Remediation history ─────────────────────────

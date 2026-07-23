@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { rulesApi } from "@/lib/api/rules";
-import type { DetectionRuleCreate, RuleFilters } from "@/lib/types";
+import type { DetectionRuleCreate, RuleFilters, RuleBulkToggle } from "@/lib/types";
 import { useWsInvalidator } from "@/lib/hooks/use-ws-invalidator";
 
 export function useRules(filters?: RuleFilters) {
@@ -66,6 +66,15 @@ export function useDeleteRule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => rulesApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rules"] }),
+  });
+}
+
+// Bulk enable/disable all rules matching the active scope filters (admin only).
+export function useBulkToggleRules() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: RuleBulkToggle) => rulesApi.bulkToggle(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rules"] }),
   });
 }

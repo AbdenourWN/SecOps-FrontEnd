@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { scriptsApi } from "@/lib/api/scripts";
-import type { ScriptCreate, ScriptFilters, RemediationHistoryFilters } from "@/lib/types";
+import type { ScriptCreate, ScriptFilters, ScriptBulkToggle, RemediationHistoryFilters } from "@/lib/types";
 import { useWsInvalidator } from "@/lib/hooks/use-ws-invalidator";
 
 export function useScripts(filters?: ScriptFilters) {
@@ -71,6 +71,15 @@ export function useToggleScript() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => scriptsApi.toggle(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["scripts"] }),
+  });
+}
+
+// Bulk enable/disable all scripts matching the active scope filters (admin only).
+export function useBulkToggleScripts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ScriptBulkToggle) => scriptsApi.bulkToggle(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["scripts"] }),
   });
 }

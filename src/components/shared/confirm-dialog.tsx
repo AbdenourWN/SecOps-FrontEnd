@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  pendingLabel?: string;
   variant?: "danger" | "warning";
   isPending?: boolean;
   onConfirm: () => void;
@@ -21,6 +22,7 @@ export function ConfirmDialog({
   message,
   confirmLabel = "Delete",
   cancelLabel = "Cancel",
+  pendingLabel = "Deleting...",
   variant = "danger",
   isPending = false,
   onConfirm,
@@ -77,7 +79,7 @@ export function ConfirmDialog({
                 : "bg-yellow-500 hover:bg-yellow-600"
             )}
           >
-            {isPending ? "Deleting..." : confirmLabel}
+            {isPending ? pendingLabel : confirmLabel}
           </button>
         </div>
       </div>

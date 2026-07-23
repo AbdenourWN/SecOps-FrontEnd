@@ -4,6 +4,8 @@ import type {
   ScriptCreate,
   ScriptFilters,
   ScriptListResponse,
+  ScriptBulkToggle,
+  ScriptBulkToggleResult,
   RemediationRun,
   RemediationHistoryFilters,
   RemediationHistoryStats,
@@ -62,6 +64,13 @@ export const scriptsApi = {
     apiClient.patch<{ status: string; enabled: boolean }>(
       `/api/automation/scripts/${id}/toggle`,
       {}
+    ),
+
+  // Bulk enable/disable every script matching the given scope filters
+  bulkToggle: (payload: ScriptBulkToggle) =>
+    apiClient.post<ScriptBulkToggleResult>(
+      "/api/automation/scripts/bulk-toggle",
+      payload
     ),
 
   history: (filters: RemediationHistoryFilters = {}) =>

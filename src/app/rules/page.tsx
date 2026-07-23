@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { getFriendlyMessage } from "@/lib/errors";
-import { useRules, useCreateRule, useDeleteRule } from "@/lib/hooks/use-rules";
-import { Plus, Trash2, Eye, LayoutGrid, Terminal, Shield, Search } from "lucide-react";
+import { useRules, useCreateRule, useDeleteRule, useBulkToggleRules } from "@/lib/hooks/use-rules";
+import { Plus, Trash2, Eye, LayoutGrid, Terminal, Shield, Search, Power, PowerOff } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/providers/auth-provider";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { OwnerBadge } from "@/components/shared/owner-badge";
 import type { SeverityLevel, ActionLevel, RuleOSType, DetectionRule } from "@/lib/types";
@@ -58,9 +59,47 @@ export default function RulesPage() {
 
   const createRule = useCreateRule();
   const deleteRule = useDeleteRule();
+  const bulkToggle = useBulkToggleRules();
+  const { isAdmin } = useAuth();
 
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DetectionRule | null>(null);
+  // Bulk enable/disable — holds the target enabled state; null = dialog closed.
+  const [bulkTarget, setBulkTarget] = useState<boolean | null>(null);
+
+  const hasActiveFilters =
+    filterSeverity !== "all" ||
+    filterOS !== "all" ||
+    filterScope !== "all" ||
+    filterEnabled !== "all" ||
+    !!search;
+
+  const handleConfirmBulk = async () => {
+    if (bulkTarget === null) return;
+    try {
+      const res = await bulkToggle.mutateAsync({
+        enabled: bulkTarget,
+        severity: filterSeverity === "all" ? undefined : filterSeverity,
+        os_type: filterOS === "all" ? undefined : filterOS,
+        owner_type: filterScope === "all" ? undefined : filterScope,
+        search: search || undefined,
+        filter_enabled: filterEnabled === "all" ? undefined : filterEnabled === "true",
+      });
+      const verb = bulkTarget ? "Enabled" : "Disabled";
+      if (res.matched === 0) {
+        toast.info("No rules matched the current filters");
+      } else if (res.changed > 0) {
+        toast.success(`${verb} ${res.changed} rule${res.changed === 1 ? "" : "s"}`);
+      } else {
+        toast.info(
+          `No change — all ${res.matched} matching rule${res.matched === 1 ? "" : "s"} already ${bulkTarget ? "enabled" : "disabled"}`
+        );
+      }
+      setBulkTarget(null);
+    } catch (err) {
+      toast.error(getFriendlyMessage(err));
+    }
+  };
 
   const [name, setName] = useState("");
   const [pattern, setPattern] = useState("");
@@ -211,6 +250,28 @@ export default function RulesPage() {
                 </button>
               ))}
             </div>
+
+            {/* Bulk enable/disable — operates on all rules matching the active filters (admin only) */}
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 pl-2 ml-1 border-l border-border">
+                <button
+                  onClick={() => setBulkTarget(true)}
+                  disabled={bulkToggle.isPending || (data?.total ?? 0) === 0}
+                  title="Enable every rule matching the current filters"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-success/30 bg-success/10 text-success hover:bg-success/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <Power className="h-3.5 w-3.5" /> Enable All
+                </button>
+                <button
+                  onClick={() => setBulkTarget(false)}
+                  disabled={bulkToggle.isPending || (data?.total ?? 0) === 0}
+                  title="Disable every rule matching the current filters"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <PowerOff className="h-3.5 w-3.5" /> Disable All
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Rules List */}
@@ -477,6 +538,28 @@ export default function RulesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={bulkTarget !== null}
+        variant={bulkTarget ? "warning" : "danger"}
+        title={bulkTarget ? "Enable Rules" : "Disable Rules"}
+        message={
+          bulkTarget === null
+            ? ""
+            : `${bulkTarget ? "Enable" : "Disable"} ${data?.total ?? 0} rule${(data?.total ?? 0) === 1 ? "" : "s"} ${
+                hasActiveFilters ? "matching the current filters" : "in the entire library"
+              }? ${
+                bulkTarget
+                  ? "Matching logs will start being classified and may trigger automated responses."
+                  : "Matching logs will no longer be classified or trigger automated responses."
+              }`
+        }
+        confirmLabel={bulkTarget ? "Enable All" : "Disable All"}
+        pendingLabel="Applying..."
+        isPending={bulkToggle.isPending}
+        onConfirm={handleConfirmBulk}
+        onCancel={() => setBulkTarget(null)}
+      />
 
       <ConfirmDialog
         open={!!deleteTarget}
